@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import StoreCard from "../components/StoreCard";
+import Search from "../components/Search";
 
 function StoreListPage({ searchTerm }) {
   const [stores, setStores] = useState([]);
-  // 1. '로딩 중'인지 아닌지를 기억할 state 추가 (처음엔 true)
   const [loading, setLoading] = useState(true);
+  // 2. searchTerm 상태를 StoreListPage가 직접 관리
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -34,6 +36,7 @@ function StoreListPage({ searchTerm }) {
   // 5. '로딩 중'이 아니라면 (loading이 false) 아래 내용을 표시
   return (
     <div>
+      <Search setSearchTerm={setSearchTerm} />
       <h2>우리 동네 가게 목록</h2>
 
       {/* 6. 데이터가 없으면(배열 길이가 0) 메시지를, 있으면 목록을 표시 */}

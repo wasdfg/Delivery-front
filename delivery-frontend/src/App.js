@@ -1,22 +1,28 @@
-import React, { useState } from "react";
+import React from "react"; // 👈 useState는 잠시 제거
 import "./App.css";
 import Header from "./components/Header";
-import Search from "./components/Search";
+// 1. 라우팅을 위한 컴포넌트들을 import
+import { Routes, Route } from "react-router-dom";
+// 2. 페이지들을 import
 import StoreListPage from "./pages/StoreListPage";
+import StoreDetailPage from "./pages/StoreDetailPage";
+// 3. Search 컴포넌트는 StoreListPage 안으로 이동시킬 예정 (여기선 삭제)
 
 function App() {
-  // 1. searchTerm 상태를 App.js (부모)에서 관리합니다.
-  const [searchTerm, setSearchTerm] = useState("");
+  // 4. searchTerm 상태는 StoreListPage가 직접 관리하도록 이동시킬 예정 (여기선 삭제)
 
   return (
     <div className="App">
       <Header />
       <main>
-        {/* 2. Search 컴포넌트에는 상태를 '설정'하는 함수를 내려줍니다. */}
-        <Search setSearchTerm={setSearchTerm} />
+        {/* 5. Routes가 URL을 보고 어떤 Route를 보여줄지 결정 */}
+        <Routes>
+          {/* 6. 기본 주소('/')로 접속하면 가게 목록 페이지를 표시 */}
+          <Route path="/" element={<StoreListPage />} />
 
-        {/* 3. StoreListPage에는 '현재' 상태 값을 내려줍니다. */}
-        <StoreListPage searchTerm={searchTerm} />
+          {/* 7. '/store/가게ID' (예: /store/5)로 접속하면 가게 상세 페이지를 표시 */}
+          <Route path="/store/:storeId" element={<StoreDetailPage />} />
+        </Routes>
       </main>
     </div>
   );
