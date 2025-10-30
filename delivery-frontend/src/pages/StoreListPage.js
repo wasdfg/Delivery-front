@@ -3,7 +3,7 @@ import axios from "axios";
 import StoreCard from "../components/StoreCard";
 import Search from "../components/Search";
 
-function StoreListPage({ searchTerm }) {
+function StoreListPage() {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   // 2. searchTerm 상태를 StoreListPage가 직접 관리
@@ -39,7 +39,6 @@ function StoreListPage({ searchTerm }) {
       <Search setSearchTerm={setSearchTerm} />
       <h2>우리 동네 가게 목록</h2>
 
-      {/* 6. 데이터가 없으면(배열 길이가 0) 메시지를, 있으면 목록을 표시 */}
       {stores.length === 0 ? (
         <div>검색된 가게가 없습니다.</div>
       ) : (
@@ -47,8 +46,9 @@ function StoreListPage({ searchTerm }) {
           {stores.map((store) => (
             <StoreCard
               key={store.id}
+              id={store.id} // 👈 이 줄을 추가하세요!
               name={store.name}
-              rating={store.averageRating} // 백엔드 DTO 필드명 확인
+              rating={store.averageRating}
               imageUrl={store.imageUrl}
             />
           ))}
