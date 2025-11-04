@@ -48,13 +48,9 @@ function StoreListPage() {
         <div className="store-list">
           {stores.map((store) => (
             <StoreCard
-              key={store.storeName}
-              // 2. 'id'가 없어서 상세페이지 이동이 아직 안됩니다. (추후 백엔드 DTO 수정 필요)
-              // id={store.id}
-
-              // 3. 'store.name' 대신 'store.storeName' 사용
-              name={store.storeName}
-              // 4. 'store.averageRating' 사용
+              key={store.id} // 👈 storeName -> store.id
+              id={store.id} // 👈 storeName -> store.id
+              name={store.name} // 👈 storeName -> store.name
               rating={store.averageRating}
               imageUrl={store.imageUrl}
             />
