@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom"; // 1. useParams 훅 import
 import axios from "axios";
+import MenuCard from "../components/MenuCard";
 
 function StoreDetailPage() {
   // 2. useParams()를 사용해 URL의 'storeId' 값을 가져옵니다.
@@ -51,9 +52,23 @@ function StoreDetailPage() {
       <p>최소 주문 금액: {store.minOrderAmount}원</p>
       <hr />
       <h2>메뉴</h2>
-      {/* 나중에 여기에 store.products 배열을 map으로 돌려서
-        메뉴 목록(MenuCard)을 표시할 것입니다.
-      */}
+      <div className="menu-list">
+        {/* 3. store.products가 없거나 비어있는지 확인 */}
+        {!store.products || store.products.length === 0 ? (
+          <div>메뉴 준비 중입니다.</div>
+        ) : (
+          // 4. store.products 배열을 map으로 돌립니다.
+          store.products.map((product) => (
+            <MenuCard
+              key={product.id} // 메뉴의 고유 ID
+              name={product.name}
+              price={product.price}
+              description={product.description}
+              imageUrl={product.imageUrl}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }

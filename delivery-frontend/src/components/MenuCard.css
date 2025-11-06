@@ -1,0 +1,45 @@
+.menu-card {
+  display: flex; /* 이미지를 왼쪽에, 정보를 오른쪽에 배치 */
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  margin-bottom: 15px; /* 카드 사이 간격 */
+  padding: 15px;
+  background-color: #fff;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.menu-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.menu-image {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 15px;
+}
+
+.menu-info {
+  flex: 1; /* 남은 공간을 모두 차지 */
+}
+
+.menu-name {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 0 0 5px 0;
+}
+
+.menu-description {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 10px 0;
+}
+
+.menu-price {
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: #333;
+  text-align: right; /* 가격을 오른쪽 정렬 */
+}
