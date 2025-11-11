@@ -1,0 +1,20 @@
+/* 장바구니 링크를 위한 상대적 위치 기준 */
+.nav-link {
+  position: relative;
+  padding: 5px;
+}
+
+/* 장바구니 배지 (빨간색 원) 스타일 */
+.cart-badge {
+  position: absolute; /* .nav-link 기준으로 절대 위치 */
+  top: 0;
+  right: 0;
+  background-color: red;
+  color: white;
+  border-radius: 50%; /* 원 모양 */
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  /* 배지가 텍스트와 겹치지 않도록 위치 조정 */
+  transform: translate(50%, -50%);
+}

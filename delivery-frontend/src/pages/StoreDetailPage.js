@@ -44,7 +44,7 @@ function StoreDetailPage() {
     <div>
       <h1>{store.name}</h1>
       <img
-        src={store.imageUrl}
+        src={`http://localhost:8080${store.imageUrl}`}
         alt={store.name}
         style={{ width: "100%", maxWidth: "600px" }}
       />
@@ -59,13 +59,7 @@ function StoreDetailPage() {
         ) : (
           // 4. store.products 배열을 map으로 돌립니다.
           store.products.map((product) => (
-            <MenuCard
-              key={product.id} // 메뉴의 고유 ID
-              name={product.name}
-              price={product.price}
-              description={product.description}
-              imageUrl={product.imageUrl}
-            />
+            <MenuCard key={product.id} product={product} />
           ))
         )}
       </div>

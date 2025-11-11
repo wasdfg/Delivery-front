@@ -9,7 +9,11 @@ function StoreCard({ id, name, rating, imageUrl }) {
   // 3. <div> 대신 <Link>를 사용하고, to={} 속성을 추가합니다.
   return (
     <Link to={`/store/${id}`} className="store-card">
-      <img src={imageUrl} alt={name} className="store-image" />
+      <img
+        src={`http://localhost:8080${imageUrl}`}
+        alt={name}
+        className="store-image"
+      />
       <div className="store-info">
         <h3 className="store-name">{name}</h3>
         <span className="store-rating">⭐ {numericRating}</span>
