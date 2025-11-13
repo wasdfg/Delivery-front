@@ -1,7 +1,53 @@
-/* 장바구니 링크를 위한 상대적 위치 기준 */
+/* 헤더 전체의 배경, 그림자, 패딩 */
+.header {
+  background-color: #ffffff;
+  padding: 15px 30px;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  position: sticky; /* 스크롤해도 상단에 고정 */
+  top: 0;
+  z-index: 1000;
+}
+
+/* 로고와 네비게이션을 담는 컨테이너 */
+.header-container {
+  display: flex;
+  justify-content: space-between; /* 로고는 왼쪽, 네비는 오른쪽 */
+  align-items: center; /* 세로 중앙 정렬 */
+
+  /* 페이지가 너무 넓어져도 헤더 내용은 중앙에 모이도록 */
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* 로고 스타일 */
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+  text-decoration: none; /* 링크 밑줄 제거 */
+}
+
+/* 네비게이션 링크들 묶음 */
+nav {
+  display: flex;
+  gap: 20px; /* 링크 사이의 간격 */
+}
+
+/* 개별 네비게이션 링크 스타일 */
 .nav-link {
+  text-decoration: none;
+  color: #555;
+  font-weight: 500;
+  font-size: 1rem;
+
+  /* 배지 위치의 기준점이 되기 위해 relative 추가 */
   position: relative;
   padding: 5px;
+}
+
+.nav-link:hover {
+  color: #000; /* 마우스 올렸을 때 색상 */
 }
 
 /* 장바구니 배지 (빨간색 원) 스타일 */

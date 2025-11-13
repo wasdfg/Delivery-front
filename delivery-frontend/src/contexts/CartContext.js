@@ -35,10 +35,10 @@ export function CartProvider({ children }) {
 
   // 나중에 만들 기능 (지금은 빈 함수)
   const removeFromCart = (productId) => {
-    /* ... */
+    setCartItems(cartItems.filter((item) => item.id !== productId));
   };
   const clearCart = () => {
-    /* ... */
+    setCartItems([]);
   };
 
   // 4. 자식 컴포넌트들에게 '상태'와 '함수'를 내려줍니다.
