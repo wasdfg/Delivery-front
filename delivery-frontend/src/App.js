@@ -7,6 +7,7 @@ import { Routes, Route } from "react-router-dom";
 import StoreListPage from "./pages/StoreListPage";
 import StoreDetailPage from "./pages/StoreDetailPage";
 import CartPage from "./pages/CartPage";
+import LoginPage from "./pages/LoginPage";
 // 3. Search 컴포넌트는 StoreListPage 안으로 이동시킬 예정 (여기선 삭제)
 
 function App() {
@@ -24,6 +25,8 @@ function App() {
           {/* 7. '/store/가게ID' (예: /store/5)로 접속하면 가게 상세 페이지를 표시 */}
           <Route path="/store/:storeId" element={<StoreDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
+
+          <Route path="/login" element={<LoginPage />} />
         </Routes>
       </main>
     </div>
