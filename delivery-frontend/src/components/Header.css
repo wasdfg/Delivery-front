@@ -64,3 +64,22 @@ nav {
   /* 배지가 텍스트와 겹치지 않도록 위치 조정 */
   transform: translate(50%, -50%);
 }
+
+.nav-link-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+
+  /* .nav-link 스타일과 동일하게 맞춤 */
+  color: #555;
+  font-weight: 500;
+  font-size: 1rem;
+  font-family: inherit; /* 폰트 상속 */
+
+  position: relative;
+  padding: 5px;
+}
+
+.nav-link-button:hover {
+  color: #000;
+}
