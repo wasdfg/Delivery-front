@@ -8,6 +8,7 @@ import StoreListPage from "./pages/StoreListPage";
 import StoreDetailPage from "./pages/StoreDetailPage";
 import CartPage from "./pages/CartPage";
 import LoginPage from "./pages/LoginPage";
+import OrderHistoryPage from "./pages/OrderHistoryPage";
 // 3. Search 컴포넌트는 StoreListPage 안으로 이동시킬 예정 (여기선 삭제)
 
 function App() {
@@ -27,6 +28,8 @@ function App() {
           <Route path="/cart" element={<CartPage />} />
 
           <Route path="/login" element={<LoginPage />} />
+
+          <Route path="/orders" element={<OrderHistoryPage />} />
         </Routes>
       </main>
     </div>

@@ -37,10 +37,15 @@ function Header() {
             {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
           </Link>
           {isLoggedIn ? (
-            // 로그인 상태일 때 "로그아웃" 버튼 표시
-            <button onClick={handleLogout} className="nav-link-button">
-              로그아웃
-            </button>
+            <>
+              <Link to="/orders" className="nav-link">
+                주문 내역
+              </Link>
+              // 로그인 상태일 때 "로그아웃" 버튼 표시
+              <button onClick={handleLogout} className="nav-link-button">
+                로그아웃
+              </button>
+            </>
           ) : (
             // 로그아웃 상태일 때 "로그인" 링크 표시
             <Link to="/login" className="nav-link">
