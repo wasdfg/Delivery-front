@@ -51,6 +51,10 @@ function Header() {
             <Link to="/login" className="nav-link">
               로그인
             </Link>
+
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+          계정이 없으신가요? <Link to="/signup" style={{ color: '#333', fontWeight: 'bold' }}>회원가입</Link>
+        </div>
           )}
         </nav>
       </div>

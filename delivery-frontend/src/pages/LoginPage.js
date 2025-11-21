@@ -74,6 +74,13 @@ function LoginPage() {
         <button type="submit" className="login-button">
           로그인
         </button>
+
+        <div style={{ marginTop: "20px", textAlign: "center" }}>
+          계정이 없으신가요?{" "}
+          <Link to="/signup" style={{ color: "#333", fontWeight: "bold" }}>
+            회원가입
+          </Link>
+        </div>
       </form>
     </div>
   );

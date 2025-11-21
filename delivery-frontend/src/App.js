@@ -9,7 +9,7 @@ import StoreDetailPage from "./pages/StoreDetailPage";
 import CartPage from "./pages/CartPage";
 import LoginPage from "./pages/LoginPage";
 import OrderHistoryPage from "./pages/OrderHistoryPage";
-// 3. Search 컴포넌트는 StoreListPage 안으로 이동시킬 예정 (여기선 삭제)
+import SignUpPage from "./pages/SignUpPage";
 
 function App() {
   // 4. searchTerm 상태는 StoreListPage가 직접 관리하도록 이동시킬 예정 (여기선 삭제)
@@ -30,6 +30,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
 
           <Route path="/orders" element={<OrderHistoryPage />} />
+
+          <Route path="/signup" element={<SignUpPage />} />
         </Routes>
       </main>
     </div>
