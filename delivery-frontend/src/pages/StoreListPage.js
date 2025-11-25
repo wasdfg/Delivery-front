@@ -2,12 +2,15 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import StoreCard from "../components/StoreCard";
 import Search from "../components/Search";
+import CategoryNav from "../components/CategoryNav";
 
 function StoreListPage() {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   // 2. searchTerm 상태를 StoreListPage가 직접 관리
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -16,9 +19,9 @@ function StoreListPage() {
         const response = await axios.get("http://localhost:8080/api/stores", {
           params: {
             keyword: searchTerm,
+            category: selectedCategory,
           },
         });
-
         console.log("서버에서 받은 데이터:", response.data.content);
 
         setStores(response.data.content);
@@ -29,7 +32,7 @@ function StoreListPage() {
     };
 
     fetchStores();
-  }, [searchTerm]);
+  }, [searchTerm, selectedCategory]);
 
   // 4. 만약 '로딩 중' (loading이 true)이라면, 로딩 메시지를 표시
   if (loading) {
@@ -40,8 +43,19 @@ function StoreListPage() {
   return (
     <div>
       <Search setSearchTerm={setSearchTerm} />
-      <h2>우리 동네 가게 목록</h2>
 
+      <CategoryNav
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+      />
+      <h2>
+        {/* 카테고리 이름에 따라 제목 바꾸기 (선택사항) */}
+        {selectedCategory === ""
+          ? "우리 동네 가게 목록"
+          : selectedCategory === "CHICKEN"
+          ? "치킨 맛집 모음"
+          : "가게 목록"}
+      </h2>
       {stores.length === 0 ? (
         <div>검색된 가게가 없습니다.</div>
       ) : (
