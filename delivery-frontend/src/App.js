@@ -10,6 +10,7 @@ import CartPage from "./pages/CartPage";
 import LoginPage from "./pages/LoginPage";
 import OrderHistoryPage from "./pages/OrderHistoryPage";
 import SignUpPage from "./pages/SignUpPage";
+import MyPage from "./pages/MyPage";
 
 function App() {
   // 4. searchTerm 상태는 StoreListPage가 직접 관리하도록 이동시킬 예정 (여기선 삭제)
@@ -32,6 +33,7 @@ function App() {
           <Route path="/orders" element={<OrderHistoryPage />} />
 
           <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/mypage" element={<MyPage />} />
         </Routes>
       </main>
     </div>

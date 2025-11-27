@@ -29,17 +29,21 @@ function Header() {
         </Link>
 
         <nav>
-          {/* 6. "장바구니" 링크/아이콘 추가 */}
-          <Link to="/cart" className="nav-link">
-            {/* 여기에 FontAwesome 같은 아이콘을 넣으면 더 좋습니다 */}
-            🛒 장바구니
-            {/* 7. 총 개수가 0보다 크면 배지 표시 */}
-            {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
-          </Link>
           {isLoggedIn ? (
             <>
+              <Link to="/mypage" className="nav-link">
+                마이페이지
+              </Link>
               <Link to="/orders" className="nav-link">
                 주문 내역
+              </Link>
+              <Link to="/cart" className="nav-link">
+                {/* 여기에 FontAwesome 같은 아이콘을 넣으면 더 좋습니다 */}
+                🛒 장바구니
+                {/* 7. 총 개수가 0보다 크면 배지 표시 */}
+                {totalItems > 0 && (
+                  <span className="cart-badge">{totalItems}</span>
+                )}
               </Link>
               // 로그인 상태일 때 "로그아웃" 버튼 표시
               <button onClick={handleLogout} className="nav-link-button">
