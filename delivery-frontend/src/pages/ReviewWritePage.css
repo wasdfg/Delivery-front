@@ -1,0 +1,44 @@
+.review-write-page {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 20px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: white;
+}
+
+.rating-select {
+  margin: 20px 0;
+  text-align: center;
+}
+
+.stars {
+  font-size: 2rem;
+  color: #ddd; /* 선택 안된 별 색깔 (회색) */
+  cursor: pointer;
+}
+
+.star.selected {
+  color: #ffd700; /* 선택된 별 색깔 (노란색) */
+}
+
+.content-input textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 15px;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  margin-top: 20px;
+  cursor: pointer;
+}

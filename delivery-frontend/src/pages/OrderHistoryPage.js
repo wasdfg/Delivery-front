@@ -2,11 +2,21 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext"; // 토큰 필요
 import "./OrderHistoryPage.css"; // 스타일 파일 (다음 단계에서 생성)
+import { useNavigate } from "react-router-dom";
 
 function OrderHistoryPage() {
   const { token } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const handleWriteReview = (orderId, storeId, storeName) => {
+    // navigate의 두 번째 인자(state)로 데이터를 넘겨주면,
+    // 이동한 페이지에서 useLocation()으로 받을 수 있습니다.
+    navigate("/review/write", {
+      state: { orderId, storeId, storeName },
+    });
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -73,6 +83,15 @@ function OrderHistoryPage() {
                 <strong>
                   총 결제금액: {order.totalPrice.toLocaleString("ko-KR")}원
                 </strong>
+
+                <button
+                  className="review-btn"
+                  onClick={() =>
+                    handleWriteReview(order.id, order.storeId, order.storeName)
+                  }
+                >
+                  ✍️ 리뷰 쓰기
+                </button>
               </div>
             </div>
           ))}
