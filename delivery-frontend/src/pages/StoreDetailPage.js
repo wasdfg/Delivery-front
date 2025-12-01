@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom"; // 1. useParams 훅 import
 import axios from "axios";
 import MenuCard from "../components/MenuCard";
+import ReviewCard from "../components/ReviewCard";
 
 function StoreDetailPage() {
   // 2. useParams()를 사용해 URL의 'storeId' 값을 가져옵니다.
@@ -11,12 +12,23 @@ function StoreDetailPage() {
   // 3. 가게 정보(객체)와 로딩 상태를 관리할 state
   const [store, setStore] = useState(null); // 초기값은 null
   const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState([]);
 
   // 4. 페이지가 처음 렌더링될 때 API를 호출
   useEffect(() => {
-    const fetchStoreDetail = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
+
+        const storeRes = await axios.get(
+          `http://localhost:8080/api/stores/${storeId}`
+        );
+        setStore(storeRes.data);
+
+        const reviewRes = await axios.get(
+          `http://localhost:8080/api/stores/${storeId}/reviews`
+        );
+        setReviews(reviewRes.data.content || reviewRes.data);
         // 5. URL에서 가져온 storeId를 사용해 API를 호출
         const response = await axios.get(
           `http://localhost:8080/api/stores/${storeId}`
@@ -28,7 +40,7 @@ function StoreDetailPage() {
       setLoading(false);
     };
 
-    fetchStoreDetail();
+    fetchData();
   }, [storeId]); // 6. storeId가 바뀔 때마다 이 훅을 다시 실행
 
   // --- 7. 로딩 및 에러 처리 ---
@@ -60,6 +72,24 @@ function StoreDetailPage() {
           // 4. store.products 배열을 map으로 돌립니다.
           store.products.map((product) => (
             <MenuCard key={product.id} product={product} />
+          ))
+        )}
+      </div>
+
+      <hr />
+      <div className="review-section">
+        <h2>
+          리뷰{" "}
+          <span style={{ fontSize: "1rem", color: "#888" }}>
+            ({reviews.length})
+          </span>
+        </h2>
+
+        {reviews.length === 0 ? (
+          <p>아직 작성된 리뷰가 없습니다.</p>
+        ) : (
+          reviews.map((review) => (
+            <ReviewCard key={review.reviewId} review={review} />
           ))
         )}
       </div>
