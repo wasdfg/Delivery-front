@@ -65,6 +65,21 @@ function MyPage() {
           <button className="action-btn" onClick={() => navigate("/orders")}>
             📄 주문 내역 확인하기
           </button>
+          <hr
+            style={{
+              width: "100%",
+              margin: "10px 0",
+              border: "none",
+              borderTop: "1px solid #eee",
+            }}
+          />
+          <button
+            className="action-btn"
+            onClick={() => navigate("/store/new")}
+            style={{ backgroundColor: "#e3f2fd" }}
+          >
+            🏪 가게 등록하기 (사장님)
+          </button>
           <button
             className="action-btn edit-btn"
             onClick={() => alert("수정 기능 준비 중!")}
