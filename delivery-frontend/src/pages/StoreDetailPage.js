@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom"; // 1. useParams 훅 import
 import axios from "axios";
 import MenuCard from "../components/MenuCard";
 import ReviewCard from "../components/ReviewCard";
+import { useNavigate, useParams } from "react-router-dom";
 
 function StoreDetailPage() {
   // 2. useParams()를 사용해 URL의 'storeId' 값을 가져옵니다.
@@ -13,6 +14,7 @@ function StoreDetailPage() {
   const [store, setStore] = useState(null); // 초기값은 null
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
+  const navigate = useNavigate();
 
   // 4. 페이지가 처음 렌더링될 때 API를 호출
   useEffect(() => {
@@ -75,7 +77,22 @@ function StoreDetailPage() {
           ))
         )}
       </div>
-
+      <div style={{ textAlign: "right", margin: "20px 0" }}>
+        <button
+          onClick={() => navigate(`/store/${storeId}/product/new`)}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#6c757d",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          ➕ 메뉴 추가하기 (사장님)
+        </button>
+      </div>
+      <h2>메뉴</h2>
       <hr />
       <div className="review-section">
         <h2>
