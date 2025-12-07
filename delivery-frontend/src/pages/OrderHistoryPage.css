@@ -82,3 +82,35 @@
 .review-btn:hover {
   background-color: #339af0;
 }
+
+.owner-actions {
+  display: flex;
+  gap: 5px;
+  justify-content: flex-end;
+}
+
+.status-btn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.status-btn.accept {
+  background-color: #28a745;
+} /* 초록 */
+.status-btn.deliver {
+  background-color: #17a2b8;
+} /* 파랑 */
+.status-btn.complete {
+  background-color: #6c757d;
+} /* 회색 */
+.status-btn.cancel {
+  background-color: #dc3545;
+} /* 빨강 */
+
+.status-btn:hover {
+  opacity: 0.9;
+}

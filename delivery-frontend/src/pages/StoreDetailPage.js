@@ -110,6 +110,38 @@ function StoreDetailPage() {
           ))
         )}
       </div>
+
+      <div
+        style={{
+          textAlign: "right",
+          margin: "20px 0",
+          display: "flex",
+          gap: "10px",
+          justifyContent: "flex-end",
+        }}
+      >
+        <button
+          onClick={() => navigate(`/store/${storeId}/product/new`)}
+          // ... (스타일 생략)
+        >
+          ➕ 메뉴 추가
+        </button>
+
+        {/* 👇 주문 관리 버튼 추가 */}
+        <button
+          onClick={() => navigate(`/store/${storeId}/orders`)}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#007bff", // 파란색
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          📋 주문 관리 (사장님)
+        </button>
+      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import MyPage from "./pages/MyPage";
 import ReviewWritePage from "./pages/ReviewWritePage";
 import StoreCreatePage from "./pages/StoreCreatePage";
 import ProductCreatePage from "./pages/ProductCreatePage";
+import OwnerOrderPage from "./pages/OwnerOrderPage";
 
 function App() {
   // 4. searchTerm 상태는 StoreListPage가 직접 관리하도록 이동시킬 예정 (여기선 삭제)
@@ -44,6 +45,7 @@ function App() {
             path="/store/:storeId/product/new"
             element={<ProductCreatePage />}
           />
+          <Route path="/store/:storeId/orders" element={<OwnerOrderPage />} />
         </Routes>
       </main>
     </div>
