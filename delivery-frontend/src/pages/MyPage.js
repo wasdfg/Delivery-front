@@ -86,6 +86,22 @@ function MyPage() {
           >
             ✏️ 내 정보 수정
           </button>
+          <button
+            className="action-btn"
+            onClick={() => navigate("/store/new")}
+            style={{ backgroundColor: "#e3f2fd" }}
+          >
+            🏪 가게 등록하기 (사장님)
+          </button>
+
+          {/* 👇 라이더 전용 버튼 추가 */}
+          <button
+            className="action-btn"
+            onClick={() => navigate("/rider")}
+            style={{ backgroundColor: "#f3e5f5" }}
+          >
+            🛵 배달 시작하기 (라이더)
+          </button>
           <button className="logout-btn" onClick={handleLogout}>
             로그아웃
           </button>
