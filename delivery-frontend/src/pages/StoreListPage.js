@@ -3,6 +3,7 @@ import axios from "axios";
 import StoreCard from "../components/StoreCard";
 import Search from "../components/Search";
 import CategoryNav from "../components/CategoryNav";
+import { useAuth } from "../contexts/AuthContext";
 
 function StoreListPage() {
   const [stores, setStores] = useState([]);
@@ -11,6 +12,10 @@ function StoreListPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedCategory, setSelectedCategory] = useState("");
+
+  const { token, isLoggedIn } = useAuth();
+
+  const [likedStoreIds, setLikedStoreIds] = useState(new Set());
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -25,6 +30,19 @@ function StoreListPage() {
         console.log("서버에서 받은 데이터:", response.data.content);
 
         setStores(response.data.content);
+
+        if (isLoggedIn && token) {
+          // 백엔드 API URL 확인 필요 (예: /api/favorites/my)
+          const likeRes = await axios.get(
+            "http://localhost:8080/api/favorites/my",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          // 받아온 찜 목록에서 ID만 추출해서 Set으로 변환
+          const myLikedIds = new Set(likeRes.data.map((store) => store.id));
+          setLikedStoreIds(myLikedIds);
+        }
       } catch (error) {
         console.error("가게 목록을 불러오는 데 실패했습니다.", error);
       }
@@ -38,7 +56,48 @@ function StoreListPage() {
   if (loading) {
     return <div>가게 목록을 불러오는 중...</div>;
   }
+  const handleToggleLike = async (storeId) => {
+    if (!isLoggedIn) {
+      alert("로그인이 필요한 서비스입니다.");
+      return;
+    }
 
+    const isCurrentlyLiked = likedStoreIds.has(storeId);
+
+    try {
+      if (isCurrentlyLiked) {
+        // (A) 이미 찜한 상태면 -> 삭제 (DELETE)
+        await axios.delete(`http://localhost:8080/api/favorites/${storeId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        // 프론트 상태 업데이트 (삭제)
+        setLikedStoreIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(storeId);
+          return newSet;
+        });
+      } else {
+        // (B) 찜 안한 상태면 -> 추가 (POST)
+        await axios.post(
+          `http://localhost:8080/api/favorites/${storeId}`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        // 프론트 상태 업데이트 (추가)
+        setLikedStoreIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(storeId);
+          return newSet;
+        });
+      }
+    } catch (error) {
+      console.error("찜 변경 실패", error);
+      // 백엔드 에러 메시지(예: "이미 찜한 가게입니다")를 보여줄 수도 있음
+      alert("오류가 발생했습니다.");
+    }
+  };
   // 5. '로딩 중'이 아니라면 (loading이 false) 아래 내용을 표시
   return (
     <div>
@@ -67,6 +126,8 @@ function StoreListPage() {
               name={store.name} // 👈 storeName -> store.name
               rating={store.averageRating}
               imageUrl={store.imageUrl}
+              isLiked={likedStoreIds.has(store.id)}
+              onToggleLike={handleToggleLike}
             />
           ))}
         </div>

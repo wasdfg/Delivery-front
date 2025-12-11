@@ -9,6 +9,7 @@ function MyPage() {
   const navigate = useNavigate();
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [favoriteStores, setFavoriteStores] = useState([]);
 
   useEffect(() => {
     const fetchMyInfo = async () => {
@@ -30,6 +31,29 @@ function MyPage() {
 
     if (token) fetchMyInfo();
   }, [token, logout, navigate]);
+
+  useEffect(() => {
+    if (token) {
+      axios
+        .get("http://localhost:8080/api/favorites/my", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((res) => setFavoriteStores(res.data))
+        .catch((err) => console.error("찜 목록 로딩 실패", err));
+    }
+  }, [token]);
+
+  const handleRemoveLike = async (storeId) => {
+    try {
+      await axios.delete(`http://localhost:8080/api/favorites/${storeId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // 화면에서 즉시 제거
+      setFavoriteStores((prev) => prev.filter((store) => store.id !== storeId));
+    } catch (error) {
+      console.error("찜 취소 실패", error);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -102,6 +126,32 @@ function MyPage() {
           >
             🛵 배달 시작하기 (라이더)
           </button>
+
+          <h2 style={{ marginTop: "40px" }}>❤️ 내가 찜한 맛집</h2>
+
+          {favoriteStores.length === 0 ? (
+            <p style={{ color: "#888" }}>아직 찜한 가게가 없습니다.</p>
+          ) : (
+            <div
+              className="store-grid"
+              style={{ display: "flex", flexWrap: "wrap", gap: "20px" }}
+            >
+              {favoriteStores.map((store) => (
+                <StoreCard
+                  key={store.id}
+                  id={store.id}
+                  name={store.name}
+                  rating={store.averageRating} // DTO 필드명 확인 (averageRating 또는 rating)
+                  imageUrl={store.imageUrl}
+                  // 마이페이지에선 무조건 true (하트 채워짐)
+                  isLiked={true}
+                  // 클릭 시 찜 취소 핸들러 실행
+                  onToggleLike={handleRemoveLike}
+                />
+              ))}
+            </div>
+          )}
+
           <button className="logout-btn" onClick={handleLogout}>
             로그아웃
           </button>
