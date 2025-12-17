@@ -10,6 +10,7 @@ function MyPage() {
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [favoriteStores, setFavoriteStores] = useState([]);
+  const [couponCode, setCouponCode] = useState("");
 
   useEffect(() => {
     const fetchMyInfo = async () => {
@@ -52,6 +53,24 @@ function MyPage() {
       setFavoriteStores((prev) => prev.filter((store) => store.id !== storeId));
     } catch (error) {
       console.error("찜 취소 실패", error);
+    }
+  };
+
+  const handleRegisterCoupon = async () => {
+    if (!couponCode) return;
+    try {
+      // POST /api/coupons/register?code=WELCOME
+      await axios.post(`http://localhost:8080/api/coupons/register`, null, {
+        params: { code: couponCode },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      alert("쿠폰이 발급되었습니다! 🎉");
+      setCouponCode("");
+      // 필요하다면 여기서 쿠폰 목록 다시 불러오기 호출
+    } catch (error) {
+      alert(
+        error.response?.data || "쿠폰 등록 실패 (이미 등록했거나 잘못된 코드)"
+      );
     }
   };
 
@@ -110,6 +129,29 @@ function MyPage() {
           >
             ✏️ 내 정보 수정
           </button>
+          <div
+            className="coupon-registration"
+            style={{
+              marginTop: "30px",
+              padding: "20px",
+              backgroundColor: "#f8f9fa",
+              borderRadius: "8px",
+            }}
+          >
+            <h3>🎟️ 쿠폰 등록</h3>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <input
+                type="text"
+                placeholder="쿠폰 코드 입력 (예: WELCOME)"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value)}
+                style={{ padding: "10px", flex: 1 }}
+              />
+              <button onClick={handleRegisterCoupon} className="action-btn">
+                등록
+              </button>
+            </div>
+          </div>
           <button
             className="action-btn"
             onClick={() => navigate("/store/new")}
