@@ -2,7 +2,12 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import "./OrderHistoryPage.css"; // 주문 내역 CSS 재사용
+import "./OrderHistoryPage.css";
+
+// 👇 웹소켓 및 알림 라이브러리 추가
+import SockJS from "sockjs-client";
+import Stomp from "stompjs";
+import { toast } from "react-toastify"; // (App.js에 ToastContainer가 있어야 작동)
 
 function OwnerOrderPage() {
   const { storeId } = useParams();
@@ -10,10 +15,9 @@ function OwnerOrderPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. 가게에 들어온 주문 목록 불러오기
+  // 1. 주문 목록 불러오기 (기존 동일)
   const fetchStoreOrders = async () => {
     try {
-      // 백엔드 API 확인 필요: GET /api/stores/{storeId}/orders
       const response = await axios.get(
         `http://localhost:8080/api/stores/${storeId}/orders`,
         {
@@ -27,26 +31,57 @@ function OwnerOrderPage() {
     setLoading(false);
   };
 
+  // ✅ 2. 웹소켓 연결 및 실시간 감지 (추가된 부분)
   useEffect(() => {
-    fetchStoreOrders();
-  }, [storeId, token]);
+    fetchStoreOrders(); // 최초 1회 로딩
 
-  // 2. 주문 상태 변경 핸들러
+    // 웹소켓 연결 시작
+    const socket = new SockJS("http://localhost:8080/ws");
+    const stompClient = Stomp.over(socket);
+
+    // 개발 중엔 로그 너무 많이 뜨면 주석 처리
+    // stompClient.debug = null;
+
+    stompClient.connect({}, () => {
+      console.log(`📡 사장님 웹소켓 연결됨: /topic/store/${storeId}`);
+
+      // 구독: 우리 가게(storeId) 관련 소식 듣기
+      stompClient.subscribe(`/topic/store/${storeId}`, (message) => {
+        const event = JSON.parse(message.body);
+
+        // (A) 새 주문 알림 (OrderCreatedEvent)
+        // 백엔드 DTO에 storeId, orderId가 있고 newStatus가 없다고 가정
+        if (event.orderId && !event.newStatus) {
+          toast.info(`🔔 새 주문 #${event.orderId}이 들어왔습니다!`);
+          fetchStoreOrders(); // ⭐ 화면 자동 갱신 (핵심!)
+        }
+
+        // (B) 새 리뷰 알림 (NewReviewEvent)
+        else if (event.authorName) {
+          toast.success(`⭐ ${event.authorName}님이 새 리뷰를 남겼습니다!`);
+        }
+      });
+    });
+
+    // 화면 나갈 때 연결 끊기
+    return () => {
+      if (stompClient.connected) stompClient.disconnect();
+    };
+  }, [storeId, token]); // storeId가 바뀔 때마다 재연결
+
+  // 3. 상태 변경 핸들러 (기존 동일)
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      // 백엔드 API 확인 필요: PATCH /api/orders/{orderId}/status
-      // Body: { status: "ACCEPTED" } 혹은 쿼리 파라미터 등 백엔드 스펙에 맞춤
       await axios.patch(
         `http://localhost:8080/api/orders/${orderId}/status`,
-        { status: newStatus }, // DTO 필드명 확인 (status 또는 orderStatus)
+        { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      alert("상태가 변경되었습니다.");
-      fetchStoreOrders(); // 목록 새로고침
+      toast.success("상태가 변경되었습니다."); // alert -> toast로 변경 추천
+      fetchStoreOrders();
     } catch (error) {
       console.error("상태 변경 실패", error);
-      alert("상태 변경에 실패했습니다.");
+      toast.error("상태 변경에 실패했습니다.");
     }
   };
 
@@ -74,7 +109,6 @@ function OwnerOrderPage() {
               </div>
 
               <div className="order-date">
-                {/* 주문자 정보가 DTO에 있다면 표시 (예: order.userName, order.address) */}
                 주문자: {order.userName || "손님"} <br />
                 주소: {order.address || "주소 정보 없음"}
               </div>
@@ -94,7 +128,6 @@ function OwnerOrderPage() {
                   </strong>
                 </div>
 
-                {/* 3. 상태 변경 버튼들 (현재 상태에 따라 다르게 보여줄 수도 있음) */}
                 <div className="owner-actions">
                   <button
                     onClick={() => handleStatusChange(order.id, "ACCEPTED")}
