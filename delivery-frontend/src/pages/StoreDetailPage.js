@@ -1,107 +1,98 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom"; // 1. useParams 훅 import
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import MenuCard from "../components/MenuCard";
 import ReviewCard from "../components/ReviewCard";
-import { useNavigate, useParams } from "react-router-dom";
 
 function StoreDetailPage() {
-  // 2. useParams()를 사용해 URL의 'storeId' 값을 가져옵니다.
-  // (App.js에서 <Route path="/store/:storeId" ...>라고 정했기 때문)
   const { storeId } = useParams();
-
-  // 3. 가게 정보(객체)와 로딩 상태를 관리할 state
-  const [store, setStore] = useState(null); // 초기값은 null
-  const [loading, setLoading] = useState(true);
-  const [reviews, setReviews] = useState([]);
   const navigate = useNavigate();
 
-  // 4. 페이지가 처음 렌더링될 때 API를 호출
+  // 상태 관리
+  const [store, setStore] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 데이터 로딩
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // 가게 상세 정보와 리뷰를 동시에 호출
+        const [storeRes, reviewRes] = await Promise.all([
+          axios.get(`http://localhost:8080/api/stores/${storeId}`),
+          axios.get(`http://localhost:8080/api/stores/${storeId}/reviews`),
+        ]);
 
-        const storeRes = await axios.get(
-          `http://localhost:8080/api/stores/${storeId}`
-        );
         setStore(storeRes.data);
-
-        const reviewRes = await axios.get(
-          `http://localhost:8080/api/stores/${storeId}/reviews`
-        );
         setReviews(reviewRes.data.content || reviewRes.data);
-        // 5. URL에서 가져온 storeId를 사용해 API를 호출
-        const response = await axios.get(
-          `http://localhost:8080/api/stores/${storeId}`
-        );
-        setStore(response.data); // 응답 데이터(객체)를 state에 저장
       } catch (error) {
-        console.error("가게 상세 정보를 불러오는 데 실패했습니다.", error);
+        console.error("데이터를 불러오는 데 실패했습니다.", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchData();
-  }, [storeId]); // 6. storeId가 바뀔 때마다 이 훅을 다시 실행
+  }, [storeId]);
 
-  // --- 7. 로딩 및 에러 처리 ---
-  if (loading) {
-    return <div>가게 정보를 불러오는 중...</div>;
-  }
-  if (!store) {
-    return <div>가게 정보를 찾을 수 없습니다.</div>;
-  }
+  if (loading) return <div className="loading">가게 정보를 불러오는 중...</div>;
+  if (!store) return <div className="error">가게 정보를 찾을 수 없습니다.</div>;
 
-  // --- 8. 로딩이 끝나고 store 데이터가 있으면 상세 정보 표시 ---
   return (
-    <div>
-      <h1>{store.name}</h1>
-      <img
-        src={`http://localhost:8080${store.imageUrl}`}
-        alt={store.name}
-        style={{ width: "100%", maxWidth: "600px" }}
-      />
-      <p>평점: ⭐ {parseFloat(store.averageRating).toFixed(1)}</p>
-      <p>최소 주문 금액: {store.minOrderAmount}원</p>
-      <hr />
-      <h2>메뉴</h2>
-      <div className="menu-list">
-        {/* 3. store.products가 없거나 비어있는지 확인 */}
-        {!store.products || store.products.length === 0 ? (
-          <div>메뉴 준비 중입니다.</div>
-        ) : (
-          // 4. store.products 배열을 map으로 돌립니다.
-          store.products.map((product) => (
-            <MenuCard key={product.id} product={product} />
-          ))
-        )}
-      </div>
-      <div style={{ textAlign: "right", margin: "20px 0" }}>
-        <button
-          onClick={() => navigate(`/store/${storeId}/product/new`)}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#6c757d",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          ➕ 메뉴 추가하기 (사장님)
-        </button>
-      </div>
-      <h2>메뉴</h2>
-      <hr />
-      <div className="review-section">
-        <h2>
-          리뷰{" "}
-          <span style={{ fontSize: "1rem", color: "#888" }}>
-            ({reviews.length})
-          </span>
-        </h2>
+    <div className="store-detail-container">
+      {/* 상단 가게 정보 섹션 */}
+      <section className="store-header">
+        <h1>{store.name}</h1>
+        <img
+          src={`http://localhost:8080${store.imageUrl}`}
+          alt={store.name}
+          style={{ width: "100%", maxWidth: "600px", borderRadius: "8px" }}
+        />
+        <div className="store-meta">
+          <p>평점: ⭐ {parseFloat(store.averageRating || 0).toFixed(1)}</p>
+          <p>최소 주문 금액: {store.minOrderAmount?.toLocaleString()}원</p>
+        </div>
+      </section>
 
+      <hr />
+
+      {/* 메뉴 섹션 */}
+      <section className="menu-section">
+        <h2>메뉴</h2>
+        <div className="menu-list">
+          {!store.products || store.products.length === 0 ? (
+            <p>메뉴 준비 중입니다.</p>
+          ) : (
+            store.products.map((product) => (
+              // MenuCard 내부에서 product.stock을 사용하여 품절 처리를 하도록 전달
+              <MenuCard key={product.id} product={product} />
+            ))
+          )}
+        </div>
+
+        {/* 사장님 전용 관리 버튼들 */}
+        <div className="admin-actions" style={adminButtonStyle}>
+          <button
+            onClick={() => navigate(`/store/${storeId}/product/new`)}
+            style={secondaryBtnStyle}
+          >
+            ➕ 메뉴 추가 (사장님)
+          </button>
+          <button
+            onClick={() => navigate(`/store/${storeId}/orders`)}
+            style={primaryBtnStyle}
+          >
+            📋 주문 관리 (사장님)
+          </button>
+        </div>
+      </section>
+
+      <hr />
+
+      {/* 리뷰 섹션 */}
+      <section className="review-section">
+        <h2>리뷰 ({reviews.length})</h2>
         {reviews.length === 0 ? (
           <p>아직 작성된 리뷰가 없습니다.</p>
         ) : (
@@ -109,39 +100,7 @@ function StoreDetailPage() {
             <ReviewCard key={review.reviewId} review={review} />
           ))
         )}
-      </div>
-
-      <div
-        style={{
-          textAlign: "right",
-          margin: "20px 0",
-          display: "flex",
-          gap: "10px",
-          justifyContent: "flex-end",
-        }}
-      >
-        <button
-          onClick={() => navigate(`/store/${storeId}/product/new`)}
-          // ... (스타일 생략)
-        >
-          ➕ 메뉴 추가
-        </button>
-
-        {/* 👇 주문 관리 버튼 추가 */}
-        <button
-          onClick={() => navigate(`/store/${storeId}/orders`)}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#007bff", // 파란색
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          📋 주문 관리 (사장님)
-        </button>
-      </div>
+      </section>
     </div>
   );
 }

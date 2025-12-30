@@ -1,0 +1,32 @@
+/* StoreDetailPage.css */
+
+.product-card.sold-out {
+  opacity: 0.6; /* 품절된 상품은 약간 흐리게 */
+  background-color: #f8f9fa;
+}
+
+.stock-info {
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.stock-info.low {
+  color: #e67e22; /* 수량 얼마 안 남았을 땐 주황색 */
+  background: #fdf2e9;
+}
+
+.stock-info.out {
+  color: #e74c3c; /* 품절일 땐 빨간색 */
+  background: #fdedec;
+  font-weight: bold;
+}
+
+.btn-sold-out {
+  background-color: #ccc !important;
+  cursor: not-allowed;
+}
+
+.btn-active:hover {
+  background-color: #339af0;
+}
