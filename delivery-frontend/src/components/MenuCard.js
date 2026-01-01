@@ -1,29 +1,30 @@
 import React from "react";
-import "./MenuCard.css"; // 👈 메뉴 카드용 CSS를 import
-import { useCart } from "../contexts/CartContext";
+import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
 
-function MenuCard({ product }) {
-  const isSoldOut = product.stock !== null && product.stock <= 0;
-  // 3. 글로벌 장바구니에서 addToCart 함수를 가져옵니다.
-  const { addToCart } = useCart();
+function MenuCard({ product, onUpdate }) {
+  const { user, token } = useAuth();
 
-  // 4. product 객체에서 필요한 정보를 분해합니다.
-  const { name, price, description, imageUrl } = product;
+  // 서버 엔티티의 isAvailable 필드가 DTO에서 available로 올 경우
+  const isAvailable = product.available;
+  const isOwner = user?.role === "OWNER";
 
-  // 가격에 콤마(,)를 찍어줍니다
-  const formattedPrice = price.toLocaleString("ko-KR");
-
-  // 5. 클릭 시 addToCart 함수를 호출하는 핸들러
-  const handleAddToCart = () => {
-    // 'product' 객체 전체를 장바구니에 전달합니다.
-    addToCart(product);
-    alert(`${name}이(가) 장바구니에 담겼습니다.`); // 👈 사용자에게 알림
+  const handleToggle = async () => {
+    try {
+      await axios.patch(
+        `http://localhost:8080/api/products/${product.id}/toggle-availability`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (onUpdate) onUpdate(); // 부모의 fetchData 호출하여 리스트 갱신
+    } catch (error) {
+      alert("상태 변경에 실패했습니다.");
+    }
   };
 
-  // 6. div에 onClick 이벤트를 추가합니다.
   return (
     <div
-      className={`menu-card ${isSoldOut ? "sold-out" : ""}`}
+      className={`menu-card ${!isAvailable ? "sold-out" : ""}`}
       style={cardStyle}
     >
       <img
@@ -31,51 +32,44 @@ function MenuCard({ product }) {
         alt={product.name}
         style={imgStyle}
       />
+
       <div className="info">
         <h3>{product.name}</h3>
         <p>{product.price.toLocaleString()}원</p>
 
-        {/* ✅ 재고 수량 표시 로직 */}
-        {product.stock !== null && (
-          <p
-            style={{ color: isSoldOut ? "red" : "#e67e22", fontWeight: "bold" }}
-          >
-            {isSoldOut ? "일시 품절" : `남은 수량: ${product.stock}개`}
-          </p>
-        )}
+        {/* ✅ 상태 뱃지 표시 */}
+        <span
+          style={{
+            fontSize: "0.8rem",
+            padding: "2px 8px",
+            borderRadius: "12px",
+            backgroundColor: isAvailable ? "#e3f2fd" : "#ffebee",
+            color: isAvailable ? "#1976d2" : "#c62828",
+          }}
+        >
+          {isAvailable ? "판매 중" : "일시 품절"}
+        </span>
       </div>
 
-      <button
-        disabled={isSoldOut}
-        style={{
-          ...orderBtnStyle,
-          backgroundColor: isSoldOut ? "#ccc" : "#ffc107",
-          cursor: isSoldOut ? "not-allowed" : "pointer",
-        }}
+      <div
+        className="actions"
+        style={{ marginLeft: "auto", display: "flex", gap: "8px" }}
       >
-        {isSoldOut ? "품절" : "담기"}
-      </button>
+        {/* 사장님용 관리 버튼 */}
+        {isOwner && (
+          <button onClick={handleToggle} style={adminBtnStyle}>
+            {isAvailable ? "품절로 변경" : "판매로 변경"}
+          </button>
+        )}
+
+        {/* 손님용 주문 버튼 */}
+        <button disabled={!isAvailable} style={orderBtnStyle(isAvailable)}>
+          {isAvailable ? "담기" : "품절"}
+        </button>
+      </div>
     </div>
   );
 }
 
-const cardStyle = {
-  display: "flex",
-  borderBottom: "1px solid #eee",
-  padding: "10px",
-  alignItems: "center",
-};
-const imgStyle = {
-  width: "80px",
-  height: "80px",
-  objectFit: "cover",
-  marginRight: "15px",
-};
-const orderBtnStyle = {
-  marginLeft: "auto",
-  padding: "8px 15px",
-  border: "none",
-  borderRadius: "4px",
-};
-
+// ... 스타일 객체들은 기존과 유사
 export default MenuCard;
