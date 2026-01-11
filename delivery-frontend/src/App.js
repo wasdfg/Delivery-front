@@ -23,6 +23,7 @@ import StoreCreatePage from "./pages/StoreCreatePage";
 import ProductCreatePage from "./pages/ProductCreatePage";
 import OwnerOrderPage from "./pages/OwnerOrderPage";
 import RiderPage from "./pages/RiderPage";
+import StoreEditPage from "./pages/StoreEditPage";
 
 function App() {
   const { user } = useAuth(); // 현재 로그인한 사용자 정보 (user.id 필요)
@@ -85,6 +86,7 @@ function App() {
         <Routes>
           <Route path="/" element={<StoreListPage />} />
           <Route path="/store/:storeId" element={<StoreDetailPage />} />
+          <Route path="/store/:storeId/edit" element={<StoreEditPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/orders" element={<OrderHistoryPage />} />

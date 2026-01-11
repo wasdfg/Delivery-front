@@ -10,11 +10,11 @@ function StoreDetailPage() {
 
   // 상태 관리
   const [store, setStore] = useState(null);
-  const [products, setProducts] = useState([]); // 정렬된 상품 목록 별도 관리
+  const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 현재 유저 정보 (실제 프로젝트의 Auth 로직에 맞춰 수정하세요)
+  // 현재 유저 정보
   const isOwner = localStorage.getItem("userRole") === "STORE_OWNER";
   const token = localStorage.getItem("token");
 
@@ -31,11 +31,10 @@ function StoreDetailPage() {
       setStore(storeData);
       setReviews(reviewRes.data.content || reviewRes.data || []);
 
-      // ✅ [1번 기능] 상품 정렬: 판매 중(available)인 것을 위로, 품절을 아래로
-      // 백엔드 DTO의 필드명이 isAvailable인지 available인지 확인 필요 (여기선 available 기준)
+      // 상품 정렬 (품절 하단 배치)
       if (storeData.products) {
         const sorted = [...storeData.products].sort((a, b) => {
-          const aAvailable = a.available ?? true; // 필드가 없으면 판매중으로 간주
+          const aAvailable = a.available ?? true;
           const bAvailable = b.available ?? true;
           return bAvailable - aAvailable;
         });
@@ -52,16 +51,16 @@ function StoreDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  // ✅ [4번 기능] 사장님 수동 영업 상태 토글 핸들러
+  // 영업 상태 수동 변경 핸들러
   const handleToggleManualClose = async () => {
     if (!window.confirm("가게 영업 상태를 변경하시겠습니까?")) return;
     try {
       await axios.patch(
-        `http://localhost:8080/api/stores/${storeId}/status`, // 백엔드 API 경로 확인 필요
+        `http://localhost:8080/api/stores/${storeId}/status`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      fetchData(); // 상태 변경 후 데이터 새로고침
+      fetchData();
     } catch (error) {
       alert("가게 상태 변경에 실패했습니다.");
     }
@@ -70,7 +69,6 @@ function StoreDetailPage() {
   if (loading) return <div className="loading">가게 정보를 불러오는 중...</div>;
   if (!store) return <div className="error">가게 정보를 찾을 수 없습니다.</div>;
 
-  // 요일 한글 변환 맵
   const dayMap = {
     MONDAY: "월",
     TUESDAY: "화",
@@ -86,7 +84,7 @@ function StoreDetailPage() {
       className="store-detail-container"
       style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}
     >
-      {/* 상단 가게 정보 및 영업 상태 */}
+      {/* 상단 섹션 */}
       <section className="store-header">
         <div
           style={{
@@ -96,8 +94,7 @@ function StoreDetailPage() {
           }}
         >
           <div>
-            <h1>{store.storeName}</h1> {/* DTO 필드명 반영: storeName */}
-            {/* ✅ [4번 기능] 최종 영업 상태 표시 */}
+            <h1>{store.storeName}</h1>
             <div style={{ marginBottom: "10px" }}>
               <span
                 style={{
@@ -117,7 +114,6 @@ function StoreDetailPage() {
             </div>
           </div>
 
-          {/* ✅ 사장님 전용 수동 제어 버튼 (isManualClosed 필드명 반영) */}
           {isOwner && (
             <button
               onClick={handleToggleManualClose}
@@ -152,7 +148,6 @@ function StoreDetailPage() {
           <p>최소 주문 금액: {store.minOrderAmount?.toLocaleString()}원</p>
           <p>배달팁: {store.deliveryFee?.toLocaleString()}원</p>
 
-          {/* ✅ [4번 기능] 요일별 영업 시간 안내 섹션 (데이터 없을 시 예외처리) */}
           <div style={operationInfoBoxStyle}>
             <h4 style={{ margin: "0 0 10px 0" }}>🕒 영업 시간 안내</h4>
             {store.operationTimes && store.operationTimes.length > 0 ? (
@@ -194,6 +189,7 @@ function StoreDetailPage() {
           }}
         >
           <h2>메뉴</h2>
+          {/* ✅ 버튼 클릭 시 URL만 변경 -> App.js가 페이지를 StoreEditPage로 교체해줌 */}
           {isOwner && (
             <button
               onClick={() => navigate(`/store/${storeId}/edit`)}
@@ -257,7 +253,7 @@ function StoreDetailPage() {
   );
 }
 
-// 스타일 정의
+// 스타일 정의 (기존과 동일)
 const operationInfoBoxStyle = {
   backgroundColor: "#f8f9fa",
   padding: "15px",
@@ -265,7 +261,6 @@ const operationInfoBoxStyle = {
   marginTop: "15px",
   border: "1px solid #eee",
 };
-
 const statusToggleBtnStyle = (isManualClosed) => ({
   padding: "8px 16px",
   backgroundColor: isManualClosed ? "#28a745" : "#dc3545",
@@ -275,7 +270,6 @@ const statusToggleBtnStyle = (isManualClosed) => ({
   cursor: "pointer",
   fontWeight: "bold",
 });
-
 const adminButtonStyle = {
   textAlign: "right",
   margin: "30px 0",
