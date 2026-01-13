@@ -1,25 +1,45 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
-// 1. Context 생성 (설계도)
 const CartContext = createContext();
 
-// 2. Context를 사용하기 위한 커스텀 훅 (간편하게 쓰기 위함)
 export function useCart() {
   return useContext(CartContext);
 }
 
-// 3. Context를 제공하는 컴포넌트 (실제 장바구니 로직)
 export function CartProvider({ children }) {
-  // 'cartItems' 배열에 장바구니에 담긴 상품들을 저장합니다.
-  const [cartItems, setCartItems] = useState([]);
+  // 초기값을 로컬스토리지에서 가져옴 (새로고침 대비)
+  const [cartItems, setCartItems] = useState(() => {
+    const savedCart = localStorage.getItem("cart");
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
 
-  // 장바구니에 아이템을 추가하는 함수
+  // 장바구니 변경 시마다 로컬스토리지에 저장
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cartItems));
+  }, [cartItems]);
+
   const addToCart = (product) => {
-    // 1. 이미 장바구니에 있는지 확인
+    // ✅ 1. 품절 상태 확인 방어 코드
+    if (product.available === false) {
+      alert("죄송합니다. 현재 품절된 상품입니다.");
+      return;
+    }
+
+    // ✅ 2. 다른 가게 상품인지 확인 (핵심!)
+    // 장바구니에 이미 상품이 있다면, 첫 번째 상품의 storeId와 비교
+    if (cartItems.length > 0 && cartItems[0].storeId !== product.storeId) {
+      const confirmClear = window.confirm(
+        "장바구니에는 같은 가게의 메뉴만 담을 수 있습니다. 기존 장바구니를 비우고 새 가게의 메뉴를 담으시겠습니까?"
+      );
+      if (confirmClear) {
+        setCartItems([{ ...product, quantity: 1 }]);
+      }
+      return;
+    }
+
     const existingItem = cartItems.find((item) => item.id === product.id);
 
     if (existingItem) {
-      // 2. 이미 있다면 수량(quantity)만 1 증가
       setCartItems(
         cartItems.map((item) =>
           item.id === product.id
@@ -28,25 +48,36 @@ export function CartProvider({ children }) {
         )
       );
     } else {
-      // 3. 없다면, quantity: 1 속성을 추가해서 새로 배열에 추가
       setCartItems([...cartItems, { ...product, quantity: 1 }]);
     }
   };
 
-  // 나중에 만들 기능 (지금은 빈 함수)
   const removeFromCart = (productId) => {
     setCartItems(cartItems.filter((item) => item.id !== productId));
   };
+
   const clearCart = () => {
     setCartItems([]);
+    localStorage.removeItem("cart");
   };
 
-  // 4. 자식 컴포넌트들에게 '상태'와 '함수'를 내려줍니다.
+  // ✅ 수량 조절 기능 추가 (UX 향상)
+  const updateQuantity = (productId, amount) => {
+    setCartItems((prev) =>
+      prev.map((item) =>
+        item.id === productId
+          ? { ...item, quantity: Math.max(1, item.quantity + amount) }
+          : item
+      )
+    );
+  };
+
   const value = {
     cartItems,
     addToCart,
     removeFromCart,
     clearCart,
+    updateQuantity, // 수량 변경 함수 추가
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -13,7 +13,6 @@ function Search() {
         type="text"
         placeholder="가게 이름을 검색하세요"
         onChange={handleChange}
-        // value는 이제 부모가 관리하므로, 여기서는 제거해도 됩니다.
       />
     </div>
   );
