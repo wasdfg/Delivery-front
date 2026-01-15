@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react"; // 👈 useRef 추가
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import "./OrderHistoryPage.css";
-
-// 👇 웹소켓 및 알림 라이브러리 추가
 import SockJS from "sockjs-client";
 import Stomp from "stompjs";
-import { toast } from "react-toastify"; // (App.js에 ToastContainer가 있어야 작동)
+import { toast } from "react-toastify";
+import "./OrderHistoryPage.css";
 
 function OwnerOrderPage() {
   const { storeId } = useParams();
@@ -15,61 +13,67 @@ function OwnerOrderPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. 주문 목록 불러오기 (기존 동일)
+  // 👈 stompClient를 useRef로 관리하여 페이지 이동 시 확실히 해제
+  const stompClient = useRef(null);
+
   const fetchStoreOrders = async () => {
     try {
       const response = await axios.get(
         `http://localhost:8080/api/stores/${storeId}/orders`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      setOrders(response.data);
+      // 최신 주문이 위로 오도록 정렬 (id 역순)
+      setOrders(response.data.sort((a, b) => b.id - a.id));
     } catch (error) {
-      console.error("주문 목록 로딩 실패", error);
+      console.error("로딩 실패", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // ✅ 2. 웹소켓 연결 및 실시간 감지 (추가된 부분)
   useEffect(() => {
-    fetchStoreOrders(); // 최초 1회 로딩
+    fetchStoreOrders();
 
-    // 웹소켓 연결 시작
     const socket = new SockJS("http://localhost:8080/ws");
-    const stompClient = Stomp.over(socket);
+    stompClient.current = Stomp.over(socket);
+    stompClient.current.debug = null; // 로그가 너무 많으면 끔
 
-    // 개발 중엔 로그 너무 많이 뜨면 주석 처리
-    // stompClient.debug = null;
+    stompClient.current.connect(
+      {},
+      () => {
+        console.log(`📡 연결 성공: 가게 ${storeId}`);
 
-    stompClient.connect({}, () => {
-      console.log(`📡 사장님 웹소켓 연결됨: /topic/store/${storeId}`);
+        stompClient.current.subscribe(`/topic/store/${storeId}`, (message) => {
+          const event = JSON.parse(message.body);
 
-      // 구독: 우리 가게(storeId) 관련 소식 듣기
-      stompClient.subscribe(`/topic/store/${storeId}`, (message) => {
-        const event = JSON.parse(message.body);
+          // ✅ 알림음 재생 (선택 사항)
+          const audio = new Audio("/sounds/notification.mp3");
+          audio.play().catch(() => {}); // 브라우저 정책상 차단될 수 있음
 
-        // (A) 새 주문 알림 (OrderCreatedEvent)
-        // 백엔드 DTO에 storeId, orderId가 있고 newStatus가 없다고 가정
-        if (event.orderId && !event.newStatus) {
-          toast.info(`🔔 새 주문 #${event.orderId}이 들어왔습니다!`);
-          fetchStoreOrders(); // ⭐ 화면 자동 갱신 (핵심!)
-        }
+          if (event.type === "ORDER_CREATED") {
+            toast.info(`🔔 새 주문 #${event.orderId} 접수!`, {
+              position: "top-right",
+            });
+            fetchStoreOrders();
+          } else if (event.type === "REVIEW_CREATED") {
+            toast.success(`⭐ 새 리뷰가 등록되었습니다!`);
+          }
+        });
+      },
+      (error) => {
+        console.error("웹소켓 연결 에러:", error);
+        // 연결 실패 시 5초 후 재시도 로직을 넣으면 더 좋습니다.
+      }
+    );
 
-        // (B) 새 리뷰 알림 (NewReviewEvent)
-        else if (event.authorName) {
-          toast.success(`⭐ ${event.authorName}님이 새 리뷰를 남겼습니다!`);
-        }
-      });
-    });
-
-    // 화면 나갈 때 연결 끊기
     return () => {
-      if (stompClient.connected) stompClient.disconnect();
+      if (stompClient.current) {
+        stompClient.current.disconnect();
+        console.log("📡 웹소켓 연결 해제");
+      }
     };
-  }, [storeId, token]); // storeId가 바뀔 때마다 재연결
+  }, [storeId, token]);
 
-  // 3. 상태 변경 핸들러 (기존 동일)
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await axios.patch(
@@ -77,90 +81,139 @@ function OwnerOrderPage() {
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success("상태가 변경되었습니다."); // alert -> toast로 변경 추천
+      toast.success(`주문 상태가 [${newStatus}]로 변경되었습니다.`);
       fetchStoreOrders();
     } catch (error) {
-      console.error("상태 변경 실패", error);
-      toast.error("상태 변경에 실패했습니다.");
+      toast.error("상태 변경 실패");
     }
   };
 
-  if (loading) return <div>주문 내역을 불러오는 중...</div>;
+  if (loading)
+    return <div className="loading-spinner">주문 목록을 불러오는 중...</div>;
 
   return (
-    <div className="order-history-page">
-      <h1>사장님 주문 관리</h1>
+    <div className="owner-order-page" style={{ padding: "20px" }}>
+      <h2>🏪 가게 주문 관리</h2>
 
-      {orders.length === 0 ? (
-        <p>들어온 주문이 없습니다.</p>
-      ) : (
-        <div className="order-list">
-          {orders.map((order) => (
-            <div
-              key={order.id}
-              className="order-card"
-              style={{ borderColor: "#339af0" }}
-            >
-              <div className="order-header">
-                <h3>주문번호 #{order.id}</h3>
-                <span className={`order-status status-${order.orderStatus}`}>
-                  {order.orderStatus}
-                </span>
-              </div>
-
-              <div className="order-date">
-                주문자: {order.userName || "손님"} <br />
-                주소: {order.address || "주소 정보 없음"}
-              </div>
-
-              <div className="order-items">
-                {order.orderItems.map((item) => (
-                  <div key={item.id} className="order-item-row">
-                    - {item.menuName} x {item.quantity}
-                  </div>
-                ))}
-              </div>
-
-              <div className="order-footer">
-                <div style={{ marginBottom: "10px" }}>
-                  <strong>
-                    합계: {order.totalPrice.toLocaleString("ko-KR")}원
-                  </strong>
-                </div>
-
-                <div className="owner-actions">
-                  <button
-                    onClick={() => handleStatusChange(order.id, "ACCEPTED")}
-                    className="status-btn accept"
-                  >
-                    접수
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange(order.id, "DELIVERING")}
-                    className="status-btn deliver"
-                  >
-                    배달중
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange(order.id, "COMPLETED")}
-                    className="status-btn complete"
-                  >
-                    완료
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange(order.id, "CANCELED")}
-                    className="status-btn cancel"
-                  >
-                    취소
-                  </button>
-                </div>
-              </div>
+      <div className="order-grid" style={{ display: "grid", gap: "20px" }}>
+        {orders.map((order) => (
+          <div
+            key={order.id}
+            className="order-card"
+            style={orderCardStyle(order.orderStatus)}
+          >
+            <div style={orderHeaderStyle}>
+              <span className="order-num">주문번호 #{order.id}</span>
+              <span className="order-time">
+                {new Date(order.createdAt).toLocaleTimeString()}
+              </span>
             </div>
-          ))}
-        </div>
-      )}
+
+            <div className="customer-info" style={{ margin: "15px 0" }}>
+              <strong>주문자:</strong> {order.userName} <br />
+              <strong>주소:</strong> {order.address} <br />
+              {order.request && (
+                <div>
+                  <strong>요청사항:</strong> {order.request}
+                </div>
+              )}
+            </div>
+
+            <div className="items-box" style={itemsBoxStyle}>
+              {order.orderItems.map((item) => (
+                <div
+                  key={item.id}
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <span>
+                    {item.menuName} x {item.quantity}
+                  </span>
+                  <span>{(item.price * item.quantity).toLocaleString()}원</span>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                textAlign: "right",
+                fontWeight: "bold",
+                fontSize: "1.1rem",
+                margin: "10px 0",
+              }}
+            >
+              총합: {order.totalPrice.toLocaleString()}원
+            </div>
+
+            <div
+              className="status-actions"
+              style={{ display: "flex", gap: "5px" }}
+            >
+              <button
+                disabled={order.orderStatus !== "PENDING"}
+                onClick={() => handleStatusChange(order.id, "ACCEPTED")}
+                style={btnStyle("#228be6")}
+              >
+                접수
+              </button>
+              <button
+                disabled={order.orderStatus !== "ACCEPTED"}
+                onClick={() => handleStatusChange(order.id, "DELIVERING")}
+                style={btnStyle("#40c057")}
+              >
+                배달시작
+              </button>
+              <button
+                disabled={order.orderStatus !== "DELIVERING"}
+                onClick={() => handleStatusChange(order.id, "COMPLETED")}
+                style={btnStyle("#868e96")}
+              >
+                완료
+              </button>
+              <button
+                disabled={["COMPLETED", "CANCELED"].includes(order.orderStatus)}
+                onClick={() => handleStatusChange(order.id, "CANCELED")}
+                style={btnStyle("#fa5252")}
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
+
+// 스타일 헬퍼
+const orderCardStyle = (status) => ({
+  border: "1px solid #ddd",
+  borderRadius: "12px",
+  padding: "20px",
+  backgroundColor: status === "PENDING" ? "#fff9db" : "#fff", // 새 주문은 노란색 강조
+  boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+});
+const orderHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  borderBottom: "1px solid #eee",
+  paddingBottom: "10px",
+  fontWeight: "bold",
+};
+const itemsBoxStyle = {
+  backgroundColor: "#f8f9fa",
+  padding: "10px",
+  borderRadius: "8px",
+};
+const btnStyle = (color) => ({
+  flex: 1,
+  padding: "10px",
+  backgroundColor: color,
+  color: "white",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
+  fontWeight: "bold",
+  opacity: 0.9,
+});
 
 export default OwnerOrderPage;
