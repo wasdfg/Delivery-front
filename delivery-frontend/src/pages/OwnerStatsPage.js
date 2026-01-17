@@ -13,24 +13,21 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  Cell,
 } from "recharts";
+
+// 차트 컬러 테마 정의
+const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088fe"];
 
 function OwnerStatsPage() {
   const { storeId } = useParams();
   const { token, isLoggedIn } = useAuth();
   const navigate = useNavigate();
 
-  // 1. 상태 관리: 초기값을 빈 배열로 명확히 설정
-  const [stats, setStats] = useState({
-    dailySales: [],
-    topMenus: [],
-  });
-
-  // 2. 로딩 상태 추가 (데이터 오기 전에 빈 화면 방지)
+  const [stats, setStats] = useState({ dailySales: [], topMenus: [] });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // 비로그인 시 튕겨내기
     if (!isLoggedIn) {
       alert("로그인이 필요합니다.");
       navigate("/login");
@@ -40,20 +37,19 @@ function OwnerStatsPage() {
     const fetchStats = async () => {
       try {
         setIsLoading(true);
-        // 백엔드: OwnerStatsResponseDto 반환 (JSON: { dailySales: [], topMenus: [] })
         const response = await axios.get(
           `http://localhost:8080/api/owner/stats/${storeId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        setStats(response.data);
+        // 데이터 정렬 보장 (날짜순)
+        const sortedSales = response.data.dailySales.sort(
+          (a, b) => new Date(a.date) - new Date(b.date)
+        );
+        setStats({ ...response.data, dailySales: sortedSales });
       } catch (error) {
-        console.error("통계 데이터 로딩 실패", error);
-        // 사장님이 아닌 경우 등 에러 처리
-        if (error.response && error.response.status === 403) {
-          alert("접근 권한이 없습니다. (본인 가게만 조회 가능)");
+        if (error.response?.status === 403) {
+          alert("접근 권한이 없습니다.");
           navigate("/");
         }
       } finally {
@@ -61,177 +57,129 @@ function OwnerStatsPage() {
       }
     };
 
-    if (storeId && token) {
-      fetchStats();
-    }
+    if (storeId && token) fetchStats();
   }, [storeId, token, isLoggedIn, navigate]);
 
-  // 3. 로딩 중일 때 보여줄 화면
-  if (isLoading) {
+  if (isLoading)
     return (
-      <div style={{ textAlign: "center", marginTop: "100px" }}>
-        <h2>📊 데이터를 분석 중입니다...</h2>
+      <div className="loading-container">
+        📊 통계 데이터를 불러오는 중입니다...
       </div>
     );
-  }
 
   return (
-    <div
-      style={{
-        padding: "30px",
-        maxWidth: "1000px",
-        margin: "0 auto",
-        backgroundColor: "#f8f9fa",
-        minHeight: "100vh",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "30px",
-        }}
-      >
-        <h1 style={{ margin: 0 }}>📊 매출 대시보드</h1>
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            padding: "10px 15px",
-            border: "1px solid #ccc",
-            borderRadius: "5px",
-            backgroundColor: "white",
-            cursor: "pointer",
-          }}
-        >
-          뒤로 가기
+    <div className="stats-dashboard" style={containerStyle}>
+      <header style={headerStyle}>
+        <h2>📈 매출 분석 대시보드</h2>
+        <button onClick={() => navigate(-1)} className="back-btn">
+          뒤로가기
         </button>
-      </div>
+      </header>
 
-      {/* --- 섹션 1: 일별 매출 그래프 --- */}
-      <div
-        style={{
-          padding: "25px",
-          backgroundColor: "#fff",
-          borderRadius: "12px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-          marginBottom: "30px",
-        }}
-      >
-        <h3
-          style={{
-            borderLeft: "5px solid #8884d8",
-            paddingLeft: "10px",
-            marginBottom: "20px",
-          }}
-        >
-          📅 최근 7일 매출 추이
-        </h3>
+      {/* --- 섹션 1: 일별 매출 (라인 차트) --- */}
+      <section style={cardStyle}>
+        <h4 style={titleStyle}>📅 최근 7일 매출 추이</h4>
+        <div style={{ width: "100%", height: 300 }}>
+          <ResponsiveContainer>
+            <LineChart data={stats.dailySales}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="#eee"
+              />
+              <XAxis
+                dataKey="date"
+                tickFormatter={(val) => val.split("-").slice(1).join("/")}
+                tick={{ fontSize: 11 }}
+              />
+              <YAxis
+                tickFormatter={(val) => `${(val / 1000).toLocaleString()}k`}
+                tick={{ fontSize: 11 }}
+              />
+              <Tooltip
+                formatter={(val) => [`${val.toLocaleString()}원`, "매출액"]}
+                contentStyle={{
+                  borderRadius: "10px",
+                  border: "none",
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                }}
+              />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="totalSales"
+                name="일별 매출"
+                stroke="#8884d8"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#8884d8" }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
 
-        {stats.dailySales.length > 0 ? (
-          <div style={{ width: "100%", height: 350 }}>
-            <ResponsiveContainer>
-              <LineChart
-                data={stats.dailySales}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(date) => date.substring(5)} // '2023-12-25' -> '12-25'로 자르기
-                />
-                <YAxis
-                  tickFormatter={(value) => `${value / 10000}만`} // 금액 축약 (선택사항)
-                />
-                <Tooltip
-                  formatter={(value) => [
-                    `${value.toLocaleString()}원`,
-                    "매출액",
-                  ]}
-                  labelFormatter={(label) => `날짜: ${label}`}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "none",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="totalSales"
-                  name="일 매출"
-                  stroke="#8884d8"
-                  strokeWidth={3}
-                  activeDot={{ r: 8 }}
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div style={{ textAlign: "center", padding: "50px", color: "#999" }}>
-            아직 매출 데이터가 충분하지 않습니다. 😅
-          </div>
-        )}
-      </div>
-
-      {/* --- 섹션 2: 인기 메뉴 TOP 5 --- */}
-      <div
-        style={{
-          padding: "25px",
-          backgroundColor: "#fff",
-          borderRadius: "12px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-        }}
-      >
-        <h3
-          style={{
-            borderLeft: "5px solid #82ca9d",
-            paddingLeft: "10px",
-            marginBottom: "20px",
-          }}
-        >
-          🏆 우리 가게 인기 메뉴 (Top 5)
-        </h3>
-
-        {stats.topMenus.length > 0 ? (
-          <div style={{ width: "100%", height: 350 }}>
-            <ResponsiveContainer>
-              <BarChart
-                data={stats.topMenus}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" hide />
-                <YAxis
-                  dataKey="menuName"
-                  type="category"
-                  width={120}
-                  tick={{ fontSize: 13, fontWeight: "bold" }}
-                />
-                <Tooltip cursor={{ fill: "#f0f0f0" }} />
-                <Legend />
-                <Bar
-                  dataKey="count"
-                  name="판매량 (개)"
-                  fill="#82ca9d"
-                  barSize={25}
-                  radius={[0, 4, 4, 0]}
-                  label={{ position: "right", fill: "#666" }} // 막대 옆에 숫자 표시
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div style={{ textAlign: "center", padding: "50px", color: "#999" }}>
-            아직 판매된 메뉴가 없습니다. 첫 주문을 기다려보세요! 🚀
-          </div>
-        )}
-      </div>
+      {/* --- 섹션 2: 인기 메뉴 (바 차트) --- */}
+      <section style={{ ...cardStyle, marginTop: "20px" }}>
+        <h4 style={titleStyle}>🏆 인기 메뉴 TOP 5</h4>
+        <div style={{ width: "100%", height: 300 }}>
+          <ResponsiveContainer>
+            <BarChart data={stats.topMenus} layout="vertical">
+              <CartesianGrid
+                strokeDasharray="3 3"
+                horizontal={false}
+                stroke="#eee"
+              />
+              <XAxis type="number" hide />
+              <YAxis
+                dataKey="menuName"
+                type="category"
+                width={100}
+                tick={{ fontSize: 12, fontWeight: "500" }}
+              />
+              <Tooltip cursor={{ fill: "#f8f9fa" }} />
+              <Bar dataKey="count" name="판매 수량" radius={[0, 5, 5, 0]}>
+                {stats.topMenus.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
     </div>
   );
 }
+
+// Inline Styles
+const containerStyle = {
+  padding: "20px",
+  maxWidth: "900px",
+  margin: "0 auto",
+  backgroundColor: "#f4f7f6",
+  minHeight: "100vh",
+};
+const headerStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "20px",
+};
+const cardStyle = {
+  padding: "20px",
+  backgroundColor: "#fff",
+  borderRadius: "15px",
+  boxShadow: "0 2px 15px rgba(0,0,0,0.03)",
+};
+const titleStyle = {
+  margin: "0 0 20px 0",
+  fontSize: "1.1rem",
+  color: "#333",
+  borderLeft: "4px solid #8884d8",
+  paddingLeft: "12px",
+};
 
 export default OwnerStatsPage;
