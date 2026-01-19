@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 function StoreEditPage() {
   const { storeId } = useParams();
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  // 기본 요일 순서 정의 (데이터 정렬 및 초기화용)
   const DAYS_ORDER = [
     "MONDAY",
     "TUESDAY",
@@ -27,7 +27,6 @@ function StoreEditPage() {
     SUNDAY: "일",
   };
 
-  // 1. 기본 정보 상태
   const [storeInfo, setStoreInfo] = useState({
     name: "",
     phone: "",
@@ -37,7 +36,6 @@ function StoreEditPage() {
     description: "",
   });
 
-  // 2. 영업 시간 상태 (7일치 초기값 설정)
   const [operationTimes, setOperationTimes] = useState(
     DAYS_ORDER.map((day) => ({
       dayOfWeek: day,
@@ -53,121 +51,128 @@ function StoreEditPage() {
         const res = await axios.get(
           `http://localhost:8080/api/stores/${storeId}`
         );
-        const data = res.data;
+        const {
+          storeName,
+          storePhone,
+          storeAddress,
+          minOrderAmount,
+          deliveryFee,
+          description,
+          operationTimes: serverTimes,
+        } = res.data;
 
-        // 기본 정보 세팅
         setStoreInfo({
-          name: data.storeName,
-          phone: data.storePhone,
-          address: data.storeAddress,
-          minOrderAmount: data.minOrderAmount,
-          deliveryFee: data.deliveryFee,
-          description: data.description,
+          name: storeName,
+          phone: storePhone,
+          address: storeAddress,
+          minOrderAmount,
+          deliveryFee,
+          description,
         });
 
-        // 영업 시간 세팅 (서버 데이터가 있으면 덮어쓰기)
-        if (data.operationTimes && data.operationTimes.length > 0) {
+        if (serverTimes && serverTimes.length > 0) {
           const mergedTimes = DAYS_ORDER.map((day) => {
-            // 서버에서 온 데이터 중 해당 요일 찾기
-            const existing = data.operationTimes.find(
-              (ot) => ot.dayOfWeek === day
-            );
-            if (existing) {
-              return {
-                dayOfWeek: existing.dayOfWeek,
-                openTime: existing.openTime.substring(0, 5), // "09:00:00" -> "09:00"
-                closeTime: existing.closeTime.substring(0, 5),
-                isDayOff: existing.isDayOff,
-              };
-            }
-            // 데이터 없으면 기본값 유지
-            return {
-              dayOfWeek: day,
-              openTime: "09:00",
-              closeTime: "22:00",
-              isDayOff: false,
-            };
+            const existing = serverTimes.find((ot) => ot.dayOfWeek === day);
+            return existing
+              ? {
+                  ...existing,
+                  openTime: existing.openTime.substring(0, 5),
+                  closeTime: existing.closeTime.substring(0, 5),
+                }
+              : {
+                  dayOfWeek: day,
+                  openTime: "09:00",
+                  closeTime: "22:00",
+                  isDayOff: false,
+                };
           });
           setOperationTimes(mergedTimes);
         }
       } catch (error) {
-        alert("가게 정보를 불러오지 못했습니다.");
+        toast.error("정보를 불러오지 못했습니다.");
       }
     };
     fetchData();
   }, [storeId]);
 
-  // 핸들러: 기본 정보 수정
+  // 💡 편의 기능: 월요일 시간을 나머지 요일에 일괄 적용
+  const applyAllDays = () => {
+    const monday = operationTimes[0];
+    const newTimes = operationTimes.map((ot) => ({
+      ...ot,
+      openTime: monday.openTime,
+      closeTime: monday.closeTime,
+      isDayOff: monday.isDayOff,
+    }));
+    setOperationTimes(newTimes);
+    toast.info("월요일 설정이 모든 요일에 적용되었습니다.");
+  };
+
   const handleInfoChange = (e) => {
     const { name, value } = e.target;
     setStoreInfo((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 핸들러: 영업 시간 수정
   const handleTimeChange = (index, field, value) => {
     const newTimes = [...operationTimes];
     newTimes[index][field] = value;
     setOperationTimes(newTimes);
   };
 
-  // 핸들러: 저장하기
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // DTO 구조에 맞춰 데이터 병합
-    const requestData = {
-      ...storeInfo,
-      operationTimes: operationTimes,
-    };
-
-    // 이미지 파일 처리 로직이 있다면 FormData 사용 필요 (여기선 JSON 예시)
     try {
       await axios.put(
-        // 또는 PATCH
         `http://localhost:8080/api/stores/${storeId}`,
-        requestData,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          ...storeInfo,
+          operationTimes,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
-      alert("성공적으로 수정되었습니다!");
+      toast.success("가게 정보가 성공적으로 수정되었습니다.");
       navigate(`/store/${storeId}`);
     } catch (error) {
-      console.error(error);
-      alert("수정에 실패했습니다.");
+      toast.error("수정에 실패했습니다.");
     }
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-      <h2>🏪 가게 정보 수정</h2>
+    <div
+      className="store-edit-container"
+      style={{ padding: "40px 20px", maxWidth: "700px", margin: "0 auto" }}
+    >
+      <h2 style={{ marginBottom: "30px", textAlign: "center" }}>
+        🏪 가게 정보 수정
+      </h2>
+
       <form onSubmit={handleSubmit}>
-        {/* --- 기본 정보 섹션 --- */}
-        <section style={sectionStyle}>
-          <h3>기본 정보</h3>
-          <div style={inputGroupStyle}>
-            <label>가게 이름</label>
-            <input
-              name="name"
-              value={storeInfo.name}
-              onChange={handleInfoChange}
-              required
-            />
+        <section style={cardStyle}>
+          <h3 style={sectionTitleStyle}>📌 기본 정보</h3>
+          <div style={gridInputStyle}>
+            <div style={inputGroupStyle}>
+              <label>가게 이름</label>
+              <input
+                name="name"
+                value={storeInfo.name}
+                onChange={handleInfoChange}
+                required
+              />
+            </div>
+            <div style={inputGroupStyle}>
+              <label>전화번호</label>
+              <input
+                name="phone"
+                value={storeInfo.phone}
+                onChange={handleInfoChange}
+                required
+              />
+            </div>
           </div>
           <div style={inputGroupStyle}>
-            <label>전화번호</label>
-            <input
-              name="phone"
-              value={storeInfo.phone}
-              onChange={handleInfoChange}
-              required
-            />
-          </div>
-          <div style={inputGroupStyle}>
-            <label>주소</label>
+            <label>가게 주소</label>
             <input
               name="address"
               value={storeInfo.address}
@@ -175,101 +180,150 @@ function StoreEditPage() {
               required
             />
           </div>
-          <div style={inputGroupStyle}>
-            <label>최소 주문 금액</label>
-            <input
-              type="number"
-              name="minOrderAmount"
-              value={storeInfo.minOrderAmount}
-              onChange={handleInfoChange}
-            />
-          </div>
-          <div style={inputGroupStyle}>
-            <label>배달팁</label>
-            <input
-              type="number"
-              name="deliveryFee"
-              value={storeInfo.deliveryFee}
-              onChange={handleInfoChange}
-            />
-          </div>
         </section>
 
-        {/* --- 영업 시간 섹션 --- */}
-        <section style={sectionStyle}>
-          <h3>요일별 영업 시간 설정</h3>
-          {operationTimes.map((ot, index) => (
-            <div key={ot.dayOfWeek} style={timeRowStyle}>
-              <div style={{ width: "40px", fontWeight: "bold" }}>
-                {DAY_LABELS[ot.dayOfWeek]}
+        <section style={cardStyle}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "15px",
+            }}
+          >
+            <h3 style={{ margin: 0 }}>🕒 영업 시간 설정</h3>
+            <button type="button" onClick={applyAllDays} style={smallBtnStyle}>
+              월요일 설정 일괄 적용
+            </button>
+          </div>
+
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+          >
+            {operationTimes.map((ot, index) => (
+              <div key={ot.dayOfWeek} style={timeRowStyle}>
+                <div
+                  style={{
+                    width: "50px",
+                    fontWeight: "bold",
+                    color:
+                      ot.dayOfWeek === "SUNDAY"
+                        ? "red"
+                        : ot.dayOfWeek === "SATURDAY"
+                        ? "blue"
+                        : "inherit",
+                  }}
+                >
+                  {DAY_LABELS[ot.dayOfWeek]}요일
+                </div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    cursor: "pointer",
+                    width: "70px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={ot.isDayOff}
+                    onChange={(e) =>
+                      handleTimeChange(index, "isDayOff", e.target.checked)
+                    }
+                  />
+                  <span style={{ marginLeft: "5px" }}>휴무</span>
+                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    opacity: ot.isDayOff ? 0.3 : 1,
+                  }}
+                >
+                  <input
+                    type="time"
+                    value={ot.openTime}
+                    disabled={ot.isDayOff}
+                    onChange={(e) =>
+                      handleTimeChange(index, "openTime", e.target.value)
+                    }
+                  />
+                  <span>~</span>
+                  <input
+                    type="time"
+                    value={ot.closeTime}
+                    disabled={ot.isDayOff}
+                    onChange={(e) =>
+                      handleTimeChange(index, "closeTime", e.target.value)
+                    }
+                  />
+                </div>
               </div>
-
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginRight: "10px",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={ot.isDayOff}
-                  onChange={(e) =>
-                    handleTimeChange(index, "isDayOff", e.target.checked)
-                  }
-                />
-                <span style={{ marginLeft: "4px" }}>휴무</span>
-              </label>
-
-              <input
-                type="time"
-                value={ot.openTime}
-                disabled={ot.isDayOff} // 휴무면 시간 입력 비활성화
-                onChange={(e) =>
-                  handleTimeChange(index, "openTime", e.target.value)
-                }
-              />
-              <span style={{ margin: "0 5px" }}>~</span>
-              <input
-                type="time"
-                value={ot.closeTime}
-                disabled={ot.isDayOff}
-                onChange={(e) =>
-                  handleTimeChange(index, "closeTime", e.target.value)
-                }
-              />
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
 
-        <button type="submit" style={submitBtnStyle}>
-          저장 완료
-        </button>
+        <div style={{ display: "flex", gap: "15px" }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{ ...submitBtnStyle, backgroundColor: "#adb5bd", flex: 1 }}
+          >
+            취소
+          </button>
+          <button type="submit" style={{ ...submitBtnStyle, flex: 2 }}>
+            저장하기
+          </button>
+        </div>
       </form>
     </div>
   );
 }
 
-// 간단한 스타일 객체
-const sectionStyle = {
-  marginBottom: "30px",
-  padding: "15px",
-  border: "1px solid #ddd",
-  borderRadius: "8px",
+// 스타일 가이드
+const cardStyle = {
+  backgroundColor: "#fff",
+  padding: "25px",
+  borderRadius: "12px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+  marginBottom: "25px",
+  border: "1px solid #eee",
+};
+const sectionTitleStyle = {
+  borderBottom: "2px solid #007bff",
+  paddingBottom: "10px",
+  marginBottom: "20px",
+  fontSize: "1.1rem",
+};
+const gridInputStyle = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "15px",
 };
 const inputGroupStyle = {
-  marginBottom: "10px",
+  marginBottom: "15px",
   display: "flex",
   flexDirection: "column",
+  gap: "5px",
 };
 const timeRowStyle = {
   display: "flex",
   alignItems: "center",
-  marginBottom: "8px",
+  padding: "10px",
+  backgroundColor: "#f8f9fa",
+  borderRadius: "8px",
+};
+const smallBtnStyle = {
+  padding: "5px 10px",
+  fontSize: "0.8rem",
+  cursor: "pointer",
+  backgroundColor: "#e7f5ff",
+  border: "1px solid #339af0",
+  color: "#1971c2",
+  borderRadius: "4px",
 };
 const submitBtnStyle = {
-  width: "100%",
   padding: "15px",
   backgroundColor: "#007bff",
   color: "white",
@@ -277,6 +331,7 @@ const submitBtnStyle = {
   borderRadius: "8px",
   fontSize: "1.1rem",
   cursor: "pointer",
+  fontWeight: "bold",
 };
 
 export default StoreEditPage;
