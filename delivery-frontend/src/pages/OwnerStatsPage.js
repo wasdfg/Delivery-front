@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import axios from "axios";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
 import {
   LineChart,
   Line,
@@ -11,175 +10,191 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
   BarChart,
   Bar,
-  Cell,
 } from "recharts";
-
-// 차트 컬러 테마 정의
-const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088fe"];
+import { toast } from "react-toastify";
 
 function OwnerStatsPage() {
   const { storeId } = useParams();
-  const { token, isLoggedIn } = useAuth();
-  const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const token = localStorage.getItem("token");
 
-  const [stats, setStats] = useState({ dailySales: [], topMenus: [] });
-  const [isLoading, setIsLoading] = useState(true);
+  // 파이 차트 색상 테마
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      alert("로그인이 필요합니다.");
-      navigate("/login");
-      return;
-    }
-
     const fetchStats = async () => {
       try {
-        setIsLoading(true);
-        const response = await axios.get(
+        const res = await axios.get(
           `http://localhost:8080/api/owner/stats/${storeId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
         );
-
-        // 데이터 정렬 보장 (날짜순)
-        const sortedSales = response.data.dailySales.sort(
-          (a, b) => new Date(a.date) - new Date(b.date)
-        );
-        setStats({ ...response.data, dailySales: sortedSales });
+        setStats(res.data);
       } catch (error) {
-        if (error.response?.status === 403) {
-          alert("접근 권한이 없습니다.");
-          navigate("/");
-        }
+        toast.error("통계 데이터를 불러오는 데 실패했습니다.");
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
+    fetchStats();
+  }, [storeId, token]);
 
-    if (storeId && token) fetchStats();
-  }, [storeId, token, isLoggedIn, navigate]);
-
-  if (isLoading)
+  if (loading)
     return (
-      <div className="loading-container">
-        📊 통계 데이터를 불러오는 중입니다...
+      <div style={{ padding: "50px", textAlign: "center" }}>
+        통계 분석 중... 📊
+      </div>
+    );
+  if (!stats)
+    return (
+      <div style={{ padding: "50px", textAlign: "center" }}>
+        데이터가 없습니다.
       </div>
     );
 
   return (
-    <div className="stats-dashboard" style={containerStyle}>
-      <header style={headerStyle}>
-        <h2>📈 매출 분석 대시보드</h2>
-        <button onClick={() => navigate(-1)} className="back-btn">
-          뒤로가기
-        </button>
-      </header>
+    <div
+      style={{
+        padding: "30px",
+        maxWidth: "1200px",
+        margin: "0 auto",
+        backgroundColor: "#f9f9f9",
+      }}
+    >
+      <h2 style={{ marginBottom: "30px" }}>📈 매장 운영 분석 보고서</h2>
 
-      {/* --- 섹션 1: 일별 매출 (라인 차트) --- */}
-      <section style={cardStyle}>
-        <h4 style={titleStyle}>📅 최근 7일 매출 추이</h4>
-        <div style={{ width: "100%", height: 300 }}>
-          <ResponsiveContainer>
-            <LineChart data={stats.dailySales}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="#eee"
-              />
-              <XAxis
-                dataKey="date"
-                tickFormatter={(val) => val.split("-").slice(1).join("/")}
-                tick={{ fontSize: 11 }}
-              />
-              <YAxis
-                tickFormatter={(val) => `${(val / 1000).toLocaleString()}k`}
-                tick={{ fontSize: 11 }}
-              />
-              <Tooltip
-                formatter={(val) => [`${val.toLocaleString()}원`, "매출액"]}
-                contentStyle={{
-                  borderRadius: "10px",
-                  border: "none",
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-                }}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="totalSales"
-                name="일별 매출"
-                stroke="#8884d8"
-                strokeWidth={3}
-                dot={{ r: 4, fill: "#8884d8" }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* 상단 요약 카드 */}
+      <div style={summaryGridStyle}>
+        <div style={cardStyle}>
+          <h4>총 매출</h4>
+          <p style={priceStyle}>{stats.totalSales?.toLocaleString()}원</p>
         </div>
-      </section>
+        <div style={cardStyle}>
+          <h4>총 주문 건수</h4>
+          <p style={countStyle}>{stats.totalOrderCount}건</p>
+        </div>
+        <div style={cardStyle}>
+          <h4>평균 객단가</h4>
+          <p style={avgStyle}>
+            {stats.totalOrderCount > 0
+              ? Math.floor(
+                  stats.totalSales / stats.totalOrderCount
+                ).toLocaleString()
+              : 0}
+            원
+          </p>
+        </div>
+      </div>
 
-      {/* --- 섹션 2: 인기 메뉴 (바 차트) --- */}
-      <section style={{ ...cardStyle, marginTop: "20px" }}>
-        <h4 style={titleStyle}>🏆 인기 메뉴 TOP 5</h4>
-        <div style={{ width: "100%", height: 300 }}>
-          <ResponsiveContainer>
-            <BarChart data={stats.topMenus} layout="vertical">
-              <CartesianGrid
-                strokeDasharray="3 3"
-                horizontal={false}
-                stroke="#eee"
-              />
-              <XAxis type="number" hide />
-              <YAxis
-                dataKey="menuName"
-                type="category"
-                width={100}
-                tick={{ fontSize: 12, fontWeight: "500" }}
-              />
-              <Tooltip cursor={{ fill: "#f8f9fa" }} />
-              <Bar dataKey="count" name="판매 수량" radius={[0, 5, 5, 0]}>
-                {stats.topMenus.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      <div style={chartGridStyle}>
+        {/* 1. 일별 매출 추이 (선 그래프) */}
+        <div style={chartCardStyle}>
+          <h3 style={{ marginBottom: "20px" }}>📅 일별 매출 추이 (최근 7일)</h3>
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer>
+              <LineChart data={stats.dailySales}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis tickFormatter={(value) => `${value / 10000}만`} />
+                <Tooltip
+                  formatter={(value) => [`${value.toLocaleString()}원`, "매출"]}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="totalSales"
+                  stroke="#8884d8"
+                  strokeWidth={3}
+                  activeDot={{ r: 8 }}
+                  name="매출액"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </section>
+
+        {/* 2. 인기 메뉴 비중 (파이 차트) */}
+        <div style={chartCardStyle}>
+          <h3 style={{ marginBottom: "20px" }}>🍕 메뉴 판매 비중 (TOP 5)</h3>
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={stats.topMenus}
+                  dataKey="count"
+                  nameKey="menuName"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={(entry) => entry.menuName}
+                >
+                  {stats.topMenus.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-// Inline Styles
-const containerStyle = {
-  padding: "20px",
-  maxWidth: "900px",
-  margin: "0 auto",
-  backgroundColor: "#f4f7f6",
-  minHeight: "100vh",
+// --- 스타일링 ---
+const summaryGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: "20px",
+  marginBottom: "30px",
 };
-const headerStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "20px",
+const chartGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "20px",
 };
 const cardStyle = {
-  padding: "20px",
   backgroundColor: "#fff",
-  borderRadius: "15px",
-  boxShadow: "0 2px 15px rgba(0,0,0,0.03)",
+  padding: "20px",
+  borderRadius: "12px",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+  textAlign: "center",
 };
-const titleStyle = {
-  margin: "0 0 20px 0",
-  fontSize: "1.1rem",
-  color: "#333",
-  borderLeft: "4px solid #8884d8",
-  paddingLeft: "12px",
+const chartCardStyle = {
+  backgroundColor: "#fff",
+  padding: "25px",
+  borderRadius: "12px",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+};
+const priceStyle = {
+  fontSize: "1.8rem",
+  fontWeight: "bold",
+  color: "#2b8a3e",
+  margin: "10px 0 0 0",
+};
+const countStyle = {
+  fontSize: "1.8rem",
+  fontWeight: "bold",
+  color: "#1971c2",
+  margin: "10px 0 0 0",
+};
+const avgStyle = {
+  fontSize: "1.8rem",
+  fontWeight: "bold",
+  color: "#e67e22",
+  margin: "10px 0 0 0",
 };
 
 export default OwnerStatsPage;
