@@ -15,6 +15,10 @@ import {
   Cell,
   BarChart,
   Bar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  Radar,
 } from "recharts";
 import { toast } from "react-toastify";
 
@@ -24,7 +28,16 @@ function OwnerStatsPage() {
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem("token");
 
-  // 파이 차트 색상 테마
+  // 요일 매핑용 (백엔드 1~7 숫자를 한글로 변환)
+  const DAY_MAP = {
+    1: "일",
+    2: "월",
+    3: "화",
+    4: "수",
+    5: "목",
+    6: "금",
+    7: "토",
+  };
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
   useEffect(() => {
@@ -36,9 +49,18 @@ function OwnerStatsPage() {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        setStats(res.data);
+
+        // 데이터 전처리: 요일 숫자를 한글로 변환
+        const formattedStats = {
+          ...res.data,
+          dayOfWeekStats: res.data.dayOfWeekStats.map((d) => ({
+            ...d,
+            day: DAY_MAP[d.day] || d.day,
+          })),
+        };
+        setStats(formattedStats);
       } catch (error) {
-        toast.error("통계 데이터를 불러오는 데 실패했습니다.");
+        toast.error("통계 정보를 불러오지 못했습니다.");
       } finally {
         setLoading(false);
       }
@@ -47,154 +69,177 @@ function OwnerStatsPage() {
   }, [storeId, token]);
 
   if (loading)
-    return (
-      <div style={{ padding: "50px", textAlign: "center" }}>
-        통계 분석 중... 📊
-      </div>
-    );
-  if (!stats)
-    return (
-      <div style={{ padding: "50px", textAlign: "center" }}>
-        데이터가 없습니다.
-      </div>
-    );
+    return <div style={loadingStyle}>매장 데이터를 분석 중입니다... 📊</div>;
 
   return (
-    <div
-      style={{
-        padding: "30px",
-        maxWidth: "1200px",
-        margin: "0 auto",
-        backgroundColor: "#f9f9f9",
-      }}
-    >
-      <h2 style={{ marginBottom: "30px" }}>📈 매장 운영 분석 보고서</h2>
+    <div style={{ padding: "40px 20px", maxWidth: "1200px", margin: "0 auto" }}>
+      <header
+        style={{
+          marginBottom: "40px",
+          borderBottom: "2px solid #eee",
+          paddingBottom: "20px",
+        }}
+      >
+        <h2 style={{ fontSize: "2rem", color: "#333" }}>
+          🏪 매장 운영 정밀 리포트
+        </h2>
+        <p style={{ color: "#666" }}>
+          가게의 매출 추이와 주문 패턴을 분석한 결과입니다.
+        </p>
+      </header>
 
-      {/* 상단 요약 카드 */}
-      <div style={summaryGridStyle}>
-        <div style={cardStyle}>
-          <h4>총 매출</h4>
-          <p style={priceStyle}>{stats.totalSales?.toLocaleString()}원</p>
-        </div>
-        <div style={cardStyle}>
-          <h4>총 주문 건수</h4>
-          <p style={countStyle}>{stats.totalOrderCount}건</p>
-        </div>
-        <div style={cardStyle}>
-          <h4>평균 객단가</h4>
-          <p style={avgStyle}>
-            {stats.totalOrderCount > 0
-              ? Math.floor(
-                  stats.totalSales / stats.totalOrderCount
-                ).toLocaleString()
-              : 0}
-            원
-          </p>
-        </div>
+      {/* 1. 요약 카드 섹션 */}
+      <div style={summaryGrid}>
+        <StatCard
+          title="누적 매출액"
+          value={`${stats.totalSales?.toLocaleString()}원`}
+          color="#2b8a3e"
+        />
+        <StatCard
+          title="누적 주문수"
+          value={`${stats.totalOrderCount}건`}
+          color="#1971c2"
+        />
+        <StatCard
+          title="평균 객단가"
+          value={`${Math.floor(
+            stats.totalSales / stats.totalOrderCount || 0
+          ).toLocaleString()}원`}
+          color="#e67e22"
+        />
       </div>
 
-      <div style={chartGridStyle}>
-        {/* 1. 일별 매출 추이 (선 그래프) */}
-        <div style={chartCardStyle}>
-          <h3 style={{ marginBottom: "20px" }}>📅 일별 매출 추이 (최근 7일)</h3>
-          <div style={{ width: "100%", height: 300 }}>
-            <ResponsiveContainer>
-              <LineChart data={stats.dailySales}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis tickFormatter={(value) => `${value / 10000}만`} />
-                <Tooltip
-                  formatter={(value) => [`${value.toLocaleString()}원`, "매출"]}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="totalSales"
-                  stroke="#8884d8"
-                  strokeWidth={3}
-                  activeDot={{ r: 8 }}
-                  name="매출액"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      {/* 2. 메인 차트 그리드 (2x2) */}
+      <div style={chartGrid}>
+        {/* 일별 매출 추이 */}
+        <ChartContainer title="📅 일별 매출 추이">
+          <LineChart data={stats.dailySales}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="date" />
+            <YAxis tickFormatter={(val) => `${val / 10000}만`} />
+            <Tooltip
+              formatter={(val) => [`${val.toLocaleString()}원`, "매출"]}
+            />
+            <Line
+              type="monotone"
+              dataKey="totalSales"
+              stroke="#339af0"
+              strokeWidth={4}
+              dot={{ r: 6 }}
+              activeDot={{ r: 10 }}
+            />
+          </LineChart>
+        </ChartContainer>
 
-        {/* 2. 인기 메뉴 비중 (파이 차트) */}
-        <div style={chartCardStyle}>
-          <h3 style={{ marginBottom: "20px" }}>🍕 메뉴 판매 비중 (TOP 5)</h3>
-          <div style={{ width: "100%", height: 300 }}>
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie
-                  data={stats.topMenus}
-                  dataKey="count"
-                  nameKey="menuName"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label={(entry) => entry.menuName}
-                >
-                  {stats.topMenus.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        {/* 인기 메뉴 비중 */}
+        <ChartContainer title="🍕 메뉴 판매 비중 (TOP 5)">
+          <PieChart>
+            <Pie
+              data={stats.topMenus}
+              dataKey="count"
+              nameKey="menuName"
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={100}
+              paddingAngle={5}
+            >
+              {stats.topMenus.map((_, i) => (
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ChartContainer>
+
+        {/* 시간대별 주문 분포 */}
+        <ChartContainer title="⏰ 시간대별 주문 집중도">
+          <BarChart data={stats.hourlyStats}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="hour" unit="시" />
+            <YAxis />
+            <Tooltip cursor={{ fill: "#f1f3f5" }} />
+            <Bar
+              dataKey="orderCount"
+              fill="#fab005"
+              radius={[4, 4, 0, 0]}
+              name="주문수"
+            />
+          </BarChart>
+        </ChartContainer>
+
+        {/* 요일별 매출 분석 */}
+        <ChartContainer title="🗓️ 요일별 매출 비중">
+          <RadarChart
+            cx="50%"
+            cy="50%"
+            outerRadius="80%"
+            data={stats.dayOfWeekStats}
+          >
+            <PolarGrid />
+            <PolarAngleAxis dataKey="day" />
+            <Radar
+              name="매출"
+              dataKey="sales"
+              stroke="#e64980"
+              fill="#e64980"
+              fillOpacity={0.5}
+            />
+            <Tooltip formatter={(val) => `${val.toLocaleString()}원`} />
+          </RadarChart>
+        </ChartContainer>
       </div>
     </div>
   );
 }
 
-// --- 스타일링 ---
-const summaryGridStyle = {
+// --- 하위 컴포넌트 및 스타일 ---
+
+const StatCard = ({ title, value, color }) => (
+  <div
+    style={{
+      ...cardStyle,
+      textAlign: "center",
+      borderTop: `5px solid ${color}`,
+    }}
+  >
+    <h4 style={{ color: "#888", marginBottom: "10px" }}>{title}</h4>
+    <p style={{ fontSize: "1.8rem", fontWeight: "bold", color }}>{value}</p>
+  </div>
+);
+
+const ChartContainer = ({ title, children }) => (
+  <div style={cardStyle}>
+    <h3 style={{ marginBottom: "20px", fontSize: "1.1rem" }}>{title}</h3>
+    <div style={{ width: "100%", height: "300px" }}>
+      <ResponsiveContainer>{children}</ResponsiveContainer>
+    </div>
+  </div>
+);
+
+const chartGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(500px, 1fr))",
+  gap: "25px",
+};
+const summaryGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(3, 1fr)",
   gap: "20px",
-  marginBottom: "30px",
-};
-const chartGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "20px",
+  marginBottom: "40px",
 };
 const cardStyle = {
   backgroundColor: "#fff",
-  padding: "20px",
-  borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-  textAlign: "center",
-};
-const chartCardStyle = {
-  backgroundColor: "#fff",
   padding: "25px",
-  borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+  borderRadius: "15px",
+  boxShadow: "0 10px 20px rgba(0,0,0,0.05)",
 };
-const priceStyle = {
-  fontSize: "1.8rem",
-  fontWeight: "bold",
-  color: "#2b8a3e",
-  margin: "10px 0 0 0",
-};
-const countStyle = {
-  fontSize: "1.8rem",
-  fontWeight: "bold",
-  color: "#1971c2",
-  margin: "10px 0 0 0",
-};
-const avgStyle = {
-  fontSize: "1.8rem",
-  fontWeight: "bold",
-  color: "#e67e22",
-  margin: "10px 0 0 0",
+const loadingStyle = {
+  padding: "100px",
+  textAlign: "center",
+  fontSize: "1.2rem",
+  color: "#666",
 };
 
 export default OwnerStatsPage;
