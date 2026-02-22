@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import MenuCard from "../components/MenuCard";
 import ReviewCard from "../components/ReviewCard";
+import ProductOptionModal from "../components/ProductOptionModal"; // [추가] 옵션 모달 컴포넌트
 import { toast } from "react-toastify";
 
 function StoreDetailPage() {
@@ -13,9 +14,10 @@ function StoreDetailPage() {
   const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // [추가] 차단 상태값
   const [isBlacklisted, setIsBlacklisted] = useState(false);
+
+  // [추가] 옵션 모달 제어를 위한 상태
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const isOwner = localStorage.getItem("userRole") === "OWNER";
   const token = localStorage.getItem("token");
@@ -24,13 +26,11 @@ function StoreDetailPage() {
     try {
       setLoading(true);
 
-      // [수정] 블랙리스트 확인과 가게 데이터를 동시에 가져옴
       const requests = [
         axios.get(`http://localhost:8080/api/stores/${storeId}`),
         axios.get(`http://localhost:8080/api/stores/${storeId}/reviews`),
       ];
 
-      // 로그인된 사용자이고 사장님이 아니라면 차단 여부 체크 API 추가
       if (token && !isOwner) {
         requests.push(
           axios.get(
@@ -43,14 +43,12 @@ function StoreDetailPage() {
       }
 
       const responses = await Promise.all(requests);
-
       const storeData = responses[0].data;
+
       setStore(storeData);
       setReviews(responses[1].data.content || responses[1].data || []);
 
-      // 블랙리스트 응답 처리
       if (responses[2]) {
-        // 백엔드에서 boolean 값을 내려준다고 가정
         setIsBlacklisted(responses[2].data);
       }
 
@@ -74,7 +72,27 @@ function StoreDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  // 영업 상태 변경 (사장님 전용)
+  // [추가] 장바구니 담기 요청 함수
+  const handleAddToCart = async (cartData) => {
+    if (!token) {
+      toast.warn("로그인이 필요한 서비스입니다.");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      await axios.post("http://localhost:8080/api/cart/items", cartData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("🛒 장바구니에 상품을 담았습니다.");
+      setSelectedProduct(null); // 성공 시 모달 닫기
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "장바구니 담기에 실패했습니다."
+      );
+    }
+  };
+
   const handleToggleManualClose = async () => {
     if (!window.confirm("영업 상태를 일시적으로 변경하시겠습니까?")) return;
     try {
@@ -94,22 +112,11 @@ function StoreDetailPage() {
     return <div className="loading-spinner">가게 정보를 가져오는 중... 🍱</div>;
   if (!store) return <div className="not-found">가게를 찾을 수 없습니다.</div>;
 
-  const dayMap = {
-    MONDAY: "월",
-    TUESDAY: "화",
-    WEDNESDAY: "수",
-    THURSDAY: "목",
-    FRIDAY: "금",
-    SATURDAY: "토",
-    SUNDAY: "일",
-  };
-
   return (
     <div
       className="store-detail-container"
       style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}
     >
-      {/* [추가] 차단된 유저를 위한 안내 배너 */}
       {isBlacklisted && (
         <div style={blacklistBannerStyle}>
           🚫 점주님에 의해 이 매장의 주문 및 리뷰 작성이 제한되었습니다.
@@ -136,7 +143,6 @@ function StoreDetailPage() {
                   store.currentlyOrderable && !isBlacklisted
                 )}
               >
-                {/* 차단된 경우 '영업 중'이라도 '주문 불가'로 인지되게 조건 추가 */}
                 {isBlacklisted
                   ? "● 주문 제한"
                   : store.currentlyOrderable
@@ -144,10 +150,12 @@ function StoreDetailPage() {
                   : "● 준비 중"}
               </span>
               <span style={{ color: "#fab005", fontWeight: "bold" }}>
-                ⭐ {store.averageRating?.toFixed(1) || "0.0"}
+                {" "}
+                ⭐ {store.averageRating?.toFixed(1) || "0.0"}{" "}
               </span>
               <span style={{ color: "#888" }}>
-                ({store.reviewCount}개의 리뷰)
+                {" "}
+                ({store.reviewCount}개의 리뷰){" "}
               </span>
             </div>
           </div>
@@ -170,58 +178,74 @@ function StoreDetailPage() {
               "https://via.placeholder.com/900x400?text=Store+Image";
           }}
         />
-        {/* ... (기존 정보 그리드 및 영업시간 코드는 동일) */}
       </section>
 
       {/* 2. 메뉴 섹션 */}
       <section className="menu-section">
-        {/* ... (메뉴 리스트 타이틀 및 사장님 메뉴 추가 버튼 동일) */}
-        <div
-          className="menu-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: "20px",
-          }}
-        >
-          {products.length === 0 ? (
-            <p
-              style={{
-                gridColumn: "1/-1",
-                textAlign: "center",
-                padding: "40px",
-                color: "#888",
-              }}
-            >
-              등록된 메뉴가 없습니다.
-            </p>
-          ) : (
-            products.map((product) => (
-              <MenuCard
-                key={product.id}
-                product={product}
-                onUpdate={fetchData}
-                // [추가] 차단된 경우 MenuCard 내부에서도 주문 버튼을 비활성화할 수 있도록 전달
-                disabled={isBlacklisted}
-              />
-            ))
-          )}
-        </div>
-      </section>
-
-      {/* 3. 리뷰 섹션 */}
-      <section className="review-section" style={{ marginTop: "60px" }}>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderBottom: "1px solid #eee",
-            paddingBottom: "10px",
+            marginBottom: "20px",
           }}
         >
+          <h2>메뉴판</h2>
+          {isOwner && (
+            <button
+              className="btn-primary"
+              onClick={() => navigate(`/store/${storeId}/product/new`)}
+            >
+              ➕ 메뉴 추가
+            </button>
+          )}
+        </div>
+
+        <div className="menu-grid" style={menuGridStyle}>
+          {products.length === 0 ? (
+            <p style={emptyMessageStyle}>등록된 메뉴가 없습니다.</p>
+          ) : (
+            products.map((product) => (
+              <div
+                key={product.id}
+                // [수정] 사장님이 아니거나 차단되지 않았을 때만 모달 열기 가능
+                onClick={() =>
+                  !isOwner &&
+                  !isBlacklisted &&
+                  product.available &&
+                  setSelectedProduct(product)
+                }
+                style={{
+                  cursor:
+                    !isOwner && !isBlacklisted && product.available
+                      ? "pointer"
+                      : "default",
+                }}
+              >
+                <MenuCard
+                  product={product}
+                  onUpdate={fetchData}
+                  disabled={isBlacklisted}
+                />
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* [추가] 메뉴 클릭 시 나타나는 옵션 선택 모달 */}
+      {selectedProduct && (
+        <ProductOptionModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={handleAddToCart}
+        />
+      )}
+
+      {/* 3. 리뷰 섹션 */}
+      <section className="review-section" style={{ marginTop: "60px" }}>
+        <div style={reviewHeaderStyle}>
           <h2>최근 리뷰 ({reviews.length})</h2>
-          {/* [추가] 차단되지 않은 일반 손님만 리뷰 작성 버튼 노출 (필요 시) */}
           {!isOwner && !isBlacklisted && (
             <button
               onClick={() => navigate(`/store/${storeId}/review/new`)}
@@ -231,15 +255,17 @@ function StoreDetailPage() {
             </button>
           )}
         </div>
-        {/* ... (리뷰 카드 리스트 렌더링 동일) */}
+        <div className="review-list">
+          {reviews.map((review) => (
+            <ReviewCard key={review.id} review={review} />
+          ))}
+        </div>
       </section>
-
-      {/* ... (사장님 퀵 메뉴 동일) */}
     </div>
   );
 }
 
-// --- 추가된 스타일 ---
+// --- Style Objects ---
 const blacklistBannerStyle = {
   backgroundColor: "#fff1f0",
   border: "1px solid #ffa39e",
@@ -252,4 +278,52 @@ const blacklistBannerStyle = {
   fontSize: "1.1rem",
 };
 
-// ... (기존 스타일링 객체 생략)
+const bannerImageStyle = {
+  width: "100%",
+  height: "300px",
+  objectFit: "cover",
+  borderRadius: "15px",
+};
+
+const menuGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gap: "20px",
+};
+
+const emptyMessageStyle = {
+  gridColumn: "1/-1",
+  textAlign: "center",
+  padding: "40px",
+  color: "#888",
+};
+
+const reviewHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  borderBottom: "1px solid #eee",
+  paddingBottom: "10px",
+  marginBottom: "20px",
+};
+
+const statusBadgeStyle = (isOpen) => ({
+  backgroundColor: isOpen ? "#e7f5ff" : "#f1f3f5",
+  color: isOpen ? "#1c7ed6" : "#868e96",
+  padding: "4px 10px",
+  borderRadius: "20px",
+  fontSize: "0.9rem",
+  fontWeight: "bold",
+});
+
+const statusToggleBtnStyle = (isClosed) => ({
+  padding: "10px 15px",
+  borderRadius: "8px",
+  border: "none",
+  cursor: "pointer",
+  backgroundColor: isClosed ? "#40c057" : "#fa5252",
+  color: "white",
+  fontWeight: "bold",
+});
+
+export default StoreDetailPage;
