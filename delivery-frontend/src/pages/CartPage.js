@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 function CartPage() {
-  // 1. Context에서 updateQuantity 추가로 가져오기
   const { cartItems, removeFromCart, clearCart, updateQuantity } = useCart();
   const { isLoggedIn, token } = useAuth();
   const navigate = useNavigate();
@@ -15,16 +14,24 @@ function CartPage() {
   const [selectedCouponId, setSelectedCouponId] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
 
-  // ✅ 2. 첫 번째 아이템을 통해 가게 정보 유추 (최소주문금액, 배달비 등)
-  // 실제로는 Context에 storeInfo를 같이 저장하거나 API로 다시 받아오는 것이 정확합니다.
+  // 1. 가게 정보 유치 (첫 번째 아이템 기준)
   const storeId = cartItems.length > 0 ? cartItems[0].storeId : null;
   const deliveryFee =
     cartItems.length > 0 ? cartItems[0].deliveryFee || 3000 : 0;
   const minOrderPrice =
     cartItems.length > 0 ? cartItems[0].minOrderAmount || 0 : 0;
 
+  // ✅ [추가] 개별 아이템의 (기본가 + 옵션가 합산) 계산 함수
+  const getItemTotalPrice = (item) => {
+    const optionsSum = item.cartOptions
+      ? item.cartOptions.reduce((acc, opt) => acc + opt.price, 0)
+      : 0;
+    return (item.price + optionsSum) * item.quantity;
+  };
+
+  // ✅ [수정] 옵션가가 반영된 전체 상품 총액
   const itemTotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + getItemTotalPrice(item),
     0
   );
 
@@ -75,7 +82,6 @@ function CartPage() {
       return;
     }
 
-    // ✅ 3. 가게 최소 주문 금액 검증 추가
     if (itemTotal < minOrderPrice) {
       alert(
         `해당 가게의 최소 주문 금액은 ${minOrderPrice.toLocaleString()}원입니다.`
@@ -84,15 +90,18 @@ function CartPage() {
     }
 
     try {
+      // ✅ [수정] 백엔드 OrderRequest 구조에 맞춰 optionIds 포함
       const orderData = {
         storeId: storeId,
         orderItems: cartItems.map((item) => ({
-          menuId: item.id,
+          productId: item.productId || item.id,
           quantity: item.quantity,
-          price: item.price,
+          optionIds: item.cartOptions
+            ? item.cartOptions.map((o) => o.optionId)
+            : [],
         })),
         userCouponId: selectedCouponId ? Number(selectedCouponId) : null,
-        totalPrice: finalPrice, // 서버 검증용으로 최종 금액 전달 권장
+        totalPrice: finalPrice,
       };
 
       await axios.post("http://localhost:8080/api/orders", orderData, {
@@ -107,17 +116,12 @@ function CartPage() {
     }
   };
 
-  // ✅ 4. 수량 변경 핸들러 수정 (Context 연동)
-  const handleQuantityChange = (productId, newQuantity) => {
+  const handleQuantityChange = (cartItemId, newQuantity) => {
     const quantity = parseInt(newQuantity);
     if (isNaN(quantity) || quantity < 1) return;
 
-    // Context의 수량 업데이트 함수 호출 (현재 수량과의 차이만큼 전달하거나 절대값 전달로 Context 수정 필요)
-    // 여기서는 절대값으로 업데이트한다고 가정하고 Context의 updateQuantity를 사용합니다.
-    updateQuantity(
-      productId,
-      quantity - cartItems.find((i) => i.id === productId).quantity
-    );
+    // Context의 업데이트 함수 호출 (단순 수량 변경)
+    updateQuantity(cartItemId, quantity);
   };
 
   if (cartItems.length === 0) {
@@ -141,16 +145,7 @@ function CartPage() {
       style={{ maxWidth: "600px", margin: "0 auto", padding: "20px" }}
     >
       <h2>장바구니</h2>
-      <button
-        onClick={clearCart}
-        style={{
-          float: "right",
-          color: "#888",
-          border: "none",
-          background: "none",
-          cursor: "pointer",
-        }}
-      >
+      <button onClick={clearCart} style={clearBtnStyle}>
         전체삭제
       </button>
 
@@ -164,9 +159,25 @@ function CartPage() {
             />
             <div style={{ flex: 1 }}>
               <h4 style={{ margin: "0" }}>{item.name}</h4>
-              <p style={{ color: "#666" }}>{item.price.toLocaleString()}원</p>
+
+              {/* ✅ [추가] 선택한 옵션들을 회색 박스 안에 표시 */}
+              {item.cartOptions && item.cartOptions.length > 0 && (
+                <div style={optionContainerStyle}>
+                  {item.cartOptions.map((opt, idx) => (
+                    <div key={idx} style={optionItemStyle}>
+                      └ {opt.name} (+{opt.price.toLocaleString()}원)
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginTop: "10px",
+                }}
               >
                 <input
                   type="number"
@@ -185,14 +196,14 @@ function CartPage() {
                 </button>
               </div>
             </div>
-            <div style={{ fontWeight: "bold" }}>
-              {(item.price * item.quantity).toLocaleString()}원
+            <div style={{ fontWeight: "bold", textAlign: "right" }}>
+              {/* ✅ [수정] 옵션가가 합산된 아이템 가격 표시 */}
+              {getItemTotalPrice(item).toLocaleString()}원
             </div>
           </div>
         ))}
       </div>
 
-      {/* 결제 정보 요약 */}
       <div className="payment-summary" style={summaryStyle}>
         <div style={rowStyle}>
           <span>할인 쿠폰</span>
@@ -232,7 +243,6 @@ function CartPage() {
           </span>
         </div>
 
-        {/* 최소 주문 금액 안내 메시지 */}
         {itemTotal < minOrderPrice && (
           <p style={{ color: "red", fontSize: "0.85rem", textAlign: "right" }}>
             * 최소 주문 금액 {minOrderPrice.toLocaleString()}원까지{" "}
@@ -252,7 +262,7 @@ function CartPage() {
   );
 }
 
-// 간단한 스타일 객체
+// --- Styles ---
 const itemStyle = {
   display: "flex",
   gap: "15px",
@@ -295,6 +305,27 @@ const removeBtnStyle = {
   borderRadius: "3px",
   cursor: "pointer",
 };
+const clearBtnStyle = {
+  float: "right",
+  color: "#888",
+  border: "none",
+  background: "none",
+  cursor: "pointer",
+};
+
+// ✅ 추가된 옵션 스타일
+const optionContainerStyle = {
+  marginTop: "5px",
+  padding: "5px 10px",
+  backgroundColor: "#f1f3f5",
+  borderRadius: "5px",
+};
+const optionItemStyle = {
+  fontSize: "0.85rem",
+  color: "#495057",
+  lineHeight: "1.4",
+};
+
 const orderBtnStyle = (active) => ({
   width: "100%",
   padding: "15px",
