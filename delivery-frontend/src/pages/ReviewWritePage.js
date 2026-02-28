@@ -12,9 +12,12 @@ function ReviewWritePage() {
 
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false); // 👈 중복 방지
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 데이터가 없거나 잘못된 접근일 경우 안전하게 차단
+  // ✅ 1. 이미지 파일과 미리보기 URL을 관리할 상태 추가
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+
   if (!state || !state.orderId) {
     return (
       <div style={{ textAlign: "center", padding: "50px" }}>
@@ -26,6 +29,15 @@ function ReviewWritePage() {
 
   const { orderId, storeId, storeName } = state;
 
+  // ✅ 2. 이미지 선택 핸들러
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file)); // 이미지 미리보기 URL 생성
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (content.length < 10)
@@ -33,11 +45,28 @@ function ReviewWritePage() {
 
     setIsSubmitting(true);
     try {
-      await axios.post(
-        "http://localhost:8080/api/reviews",
-        { orderId, storeId, rating, content },
-        { headers: { Authorization: `Bearer ${token}` } }
+      // ✅ 3. 파일 전송을 위해 FormData 객체 생성
+      const formData = new FormData();
+
+      // 이미지 파일이 선택되었다면 추가 (백엔드 파라미터명 'image'에 맞춤)
+      if (imageFile) {
+        formData.append("image", imageFile);
+      }
+
+      // 텍스트 데이터들을 JSON 형태로 묶어서 Blob으로 추가 (백엔드 @RequestPart("data") 구조에 맞춤)
+      const reviewData = { orderId, storeId, rating, content };
+      formData.append(
+        "data",
+        new Blob([JSON.stringify(reviewData)], { type: "application/json" })
       );
+
+      // ✅ 4. Content-Type을 multipart/form-data로 변경
+      await axios.post("http://localhost:8080/api/reviews", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       toast.success("리뷰가 소중하게 등록되었습니다! 🎉");
       navigate("/orders");
@@ -100,6 +129,50 @@ function ReviewWritePage() {
           <p style={{ marginTop: "5px", color: "#555" }}>{rating}점 / 5점</p>
         </div>
 
+        {/* ✅ 5. 사진 첨부 UI 추가 */}
+        <div className="image-upload-group" style={{ marginBottom: "15px" }}>
+          <label
+            style={{
+              fontWeight: "bold",
+              display: "block",
+              marginBottom: "8px",
+            }}
+          >
+            사진 첨부 (선택)
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            style={{ marginBottom: "10px" }}
+          />
+          {imagePreview && (
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <img
+                src={imagePreview}
+                alt="미리보기"
+                style={{
+                  width: "100px",
+                  height: "100px",
+                  objectFit: "cover",
+                  borderRadius: "8px",
+                  border: "1px solid #ddd",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setImageFile(null);
+                  setImagePreview("");
+                }}
+                style={removeImgBtnStyle}
+              >
+                X
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* 내용 입력 섹션 */}
         <div className="input-group">
           <textarea
@@ -154,5 +227,22 @@ const submitBtnStyle = (disabled) => ({
   fontWeight: "bold",
   cursor: disabled ? "not-allowed" : "pointer",
 });
+// ✅ 미리보기 이미지 삭제 버튼 스타일
+const removeImgBtnStyle = {
+  position: "absolute",
+  top: "-5px",
+  right: "-5px",
+  background: "red",
+  color: "white",
+  border: "none",
+  borderRadius: "50%",
+  width: "20px",
+  height: "20px",
+  cursor: "pointer",
+  fontSize: "12px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
 
 export default ReviewWritePage;
