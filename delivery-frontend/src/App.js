@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import "./App.css";
 import Header from "./components/Header";
-import { Routes, Route, useNavigate } from "react-router-dom"; // useNavigate 추가
+import { Routes, Route, useNavigate } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 
 // 라이브러리 import
@@ -11,7 +11,7 @@ import { EventSourcePolyfill, NativeEventSource } from "event-source-polyfill";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// 페이지 import
+// 페이지 import (생략된 부분 유지)
 import StoreListPage from "./pages/StoreListPage";
 import StoreDetailPage from "./pages/StoreDetailPage";
 import CartPage from "./pages/CartPage";
@@ -33,15 +33,20 @@ function App() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // ✅ 알림 개수 갱신을 위한 커스텀 이벤트 발생 함수
+  const refreshUnreadCount = () => {
+    window.dispatchEvent(new CustomEvent("updateUnreadCount"));
+  };
+
   // ✅ 1. 고객용 웹소켓 리스너 (주문 상태 변경 알림)
   useEffect(() => {
     if (!user || !user.id) return;
 
     const socket = new SockJS("http://localhost:8080/ws");
     const stompClient = Stomp.over(socket);
+    stompClient.debug = null; // 콘솔 로그가 너무 많으면 끔
 
     stompClient.connect({}, () => {
-      console.log(`📡 고객용 웹소켓 연결: /topic/user/${user.id}`);
       stompClient.subscribe(`/topic/user/${user.id}`, (message) => {
         const event = JSON.parse(message.body);
 
@@ -52,13 +57,15 @@ function App() {
             COMPLETED: "배달이 완료되었습니다. 맛있게 드세요! 😋",
             CANCELED: "주문이 취소되었습니다. 😥",
           };
+
           toast.info(
-            statusMsg[event.newStatus] || "주문 상태가 변경되었습니다."
+            statusMsg[event.newStatus] || "주문 상태가 변경되었습니다.",
+            {
+              onClick: () => navigate(`/orders/${event.orderId}`), // 알림 클릭 시 상세페이지로
+            }
           );
-        } else if (event.riderName) {
-          toast.success(
-            `🛵 라이더(${event.riderName})님이 배달을 시작했습니다!`
-          );
+
+          refreshUnreadCount(); // 알림 숫자가 올라가도록 신호 발생
         }
       });
     });
@@ -66,11 +73,10 @@ function App() {
     return () => {
       if (stompClient.connected) stompClient.disconnect();
     };
-  }, [user]);
+  }, [user, navigate]);
 
   // ✅ 2. 사장님용 SSE 리스너 (새 주문 실시간 알림)
   useEffect(() => {
-    // user.role이 OWNER이고 storeId가 있는 경우에만 작동
     if (!user || user.role !== "OWNER" || !user.storeId) return;
 
     const token = localStorage.getItem("token");
@@ -82,18 +88,15 @@ function App() {
       }
     );
 
-    eventSource.addEventListener("connect", (e) => {
-      console.log("🏪 사장님 SSE 연결 성공");
-    });
-
     eventSource.addEventListener("newOrder", (e) => {
-      // 알림음 재생
       new Audio("/sounds/notification.mp3").play().catch(() => {});
 
       toast.success(`📦 ${e.data}`, {
-        onClick: () => navigate(`/store/${user.storeId}/orders`), // 알림 클릭 시 주문 페이지 이동
+        onClick: () => navigate(`/store/${user.storeId}/orders`),
         autoClose: 10000,
       });
+
+      refreshUnreadCount(); // 사장님 헤더 알림 숫자 갱신
     });
 
     eventSource.onerror = () => {
