@@ -194,3 +194,24 @@ nav {
 .delete-btn:hover {
   color: #ff4d4f; /* 마우스 올리면 빨간색 */
 }
+
+/* 기본 상태에 transition을 추가하여 부드럽게 움직일 준비 */
+.noti-item {
+  transition: all 0.4s ease-out;
+  opacity: 1;
+  transform: translateX(0);
+  max-height: 150px;
+  overflow: hidden;
+}
+
+/* 삭제 중일 때 적용되는 애니메이션 효과 */
+.noti-item.deleting {
+  opacity: 0;
+  transform: translateX(100%);
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+  border: none;
+  pointer-events: none;
+}
