@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react"; // 👈 useRef 추가
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -13,7 +13,6 @@ function OwnerOrderPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 👈 stompClient를 useRef로 관리하여 페이지 이동 시 확실히 해제
   const stompClient = useRef(null);
 
   const fetchStoreOrders = async () => {
@@ -22,7 +21,6 @@ function OwnerOrderPage() {
         `http://localhost:8080/api/stores/${storeId}/orders`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // 최신 주문이 위로 오도록 정렬 (id 역순)
       setOrders(response.data.sort((a, b) => b.id - a.id));
     } catch (error) {
       console.error("로딩 실패", error);
@@ -36,7 +34,7 @@ function OwnerOrderPage() {
 
     const socket = new SockJS("http://localhost:8080/ws");
     stompClient.current = Stomp.over(socket);
-    stompClient.current.debug = null; // 로그가 너무 많으면 끔
+    stompClient.current.debug = null;
 
     stompClient.current.connect(
       {},
@@ -46,9 +44,8 @@ function OwnerOrderPage() {
         stompClient.current.subscribe(`/topic/store/${storeId}`, (message) => {
           const event = JSON.parse(message.body);
 
-          // ✅ 알림음 재생 (선택 사항)
           const audio = new Audio("/sounds/notification.mp3");
-          audio.play().catch(() => {}); // 브라우저 정책상 차단될 수 있음
+          audio.play().catch(() => {});
 
           if (event.type === "ORDER_CREATED") {
             toast.info(`🔔 새 주문 #${event.orderId} 접수!`, {
@@ -62,7 +59,6 @@ function OwnerOrderPage() {
       },
       (error) => {
         console.error("웹소켓 연결 에러:", error);
-        // 연결 실패 시 5초 후 재시도 로직을 넣으면 더 좋습니다.
       }
     );
 
@@ -85,6 +81,36 @@ function OwnerOrderPage() {
       fetchStoreOrders();
     } catch (error) {
       toast.error("상태 변경 실패");
+    }
+  };
+
+  // ✅ 추가: 주문 취소 전용 핸들러 (사유 입력 포함)
+  const handleCancelOrder = async (orderId) => {
+    // 1. 사유 입력 창 띄우기
+    const reason = window.prompt(
+      "취소 사유를 입력해주세요. (예: 재료 소진, 배달 불가 등)"
+    );
+
+    // 2. 취소 버튼을 누르거나(null) 빈 값을 입력한 경우 예외 처리
+    if (reason === null) return;
+    if (reason.trim() === "") {
+      toast.warn("취소 사유를 반드시 입력해야 합니다.");
+      return;
+    }
+
+    try {
+      // 3. 백엔드의 취소 전용 엔드포인트로 요청 전송 (reason 데이터 포함)
+      await axios.patch(
+        `http://localhost:8080/api/orders/${orderId}/cancel`,
+        { reason: reason },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success(`주문이 취소되었습니다. (사유: ${reason})`);
+      fetchStoreOrders(); // 목록 새로고침
+    } catch (error) {
+      console.error("취소 에러:", error);
+      toast.error("주문 취소 처리에 실패했습니다.");
     }
   };
 
@@ -169,9 +195,10 @@ function OwnerOrderPage() {
               >
                 완료
               </button>
+              {/* ✅ 수정: 취소 버튼 클릭 시 handleCancelOrder 호출 */}
               <button
                 disabled={["COMPLETED", "CANCELED"].includes(order.orderStatus)}
-                onClick={() => handleStatusChange(order.id, "CANCELED")}
+                onClick={() => handleCancelOrder(order.id)}
                 style={btnStyle("#fa5252")}
               >
                 취소
@@ -189,7 +216,7 @@ const orderCardStyle = (status) => ({
   border: "1px solid #ddd",
   borderRadius: "12px",
   padding: "20px",
-  backgroundColor: status === "PENDING" ? "#fff9db" : "#fff", // 새 주문은 노란색 강조
+  backgroundColor: status === "PENDING" ? "#fff9db" : "#fff",
   boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
 });
 const orderHeaderStyle = {
