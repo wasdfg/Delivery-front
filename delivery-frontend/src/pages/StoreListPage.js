@@ -13,16 +13,19 @@ function StoreListPage() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [likedStoreIds, setLikedStoreIds] = useState(new Set());
 
+  // ✅ 추가됨: 가격 필터를 위한 상태 관리
+  const [minOrderAmount, setMinOrderAmount] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState("");
+
   const { token, isLoggedIn } = useAuth();
 
-  // 카테고리별 한글 타이틀 매핑 객체
   const categoryTitles = {
     "": "우리 동네 맛집 목록",
-    CHICKEN: "바삭한 치킨 맛집",
-    PIZZA: "치즈 듬뿍 피자 맛집",
-    KOREAN_FOOD: "든든한 한식 한 끼",
-    CHINESE_FOOD: "불맛 가득 중식",
-    JAPANESE_FOOD: "깔끔한 일식 모음",
+    1: "바삭한 치킨 맛집", // 기존 CHICKEN
+    2: "치즈 듬뿍 피자 맛집", // 기존 PIZZA
+    3: "든든한 한식 한 끼", // 기존 KOREAN_FOOD
+    4: "불맛 가득 중식", // 기존 CHINESE_FOOD
+    5: "깔끔한 일식 모음", // 기존 JAPANESE_FOOD
   };
 
   useEffect(() => {
@@ -33,7 +36,12 @@ function StoreListPage() {
         const response = await axios.get("http://localhost:8080/api/stores", {
           params: {
             keyword: searchTerm,
-            category: selectedCategory,
+            categoryId:
+              selectedCategory !== "" ? Number(selectedCategory) : null,
+            // ✅ 추가됨: API 요청 시 필터 값 전송 (빈 문자열이 아니면 숫자로 변환)
+            minOrderAmount:
+              minOrderAmount !== "" ? Number(minOrderAmount) : null,
+            deliveryFee: deliveryFee !== "" ? Number(deliveryFee) : null,
           },
         });
         setStores(response.data.content || []);
@@ -60,7 +68,15 @@ function StoreListPage() {
     };
 
     fetchStores();
-  }, [searchTerm, selectedCategory, isLoggedIn, token]); // 의존성 추가
+    // ✅ 추가됨: 필터 상태값이 변경될 때도 useEffect가 실행되도록 의존성 배열에 추가
+  }, [
+    searchTerm,
+    selectedCategory,
+    minOrderAmount,
+    deliveryFee,
+    isLoggedIn,
+    token,
+  ]);
 
   const handleToggleLike = async (storeId) => {
     if (!isLoggedIn) {
@@ -110,6 +126,32 @@ function StoreListPage() {
         onSelectCategory={setSelectedCategory}
       />
 
+      {/* ✅ 추가됨: 가격 필터 UI 영역 */}
+      <div style={filterContainerStyle}>
+        <select
+          value={minOrderAmount}
+          onChange={(e) => setMinOrderAmount(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="">최소주문금액 전체</option>
+          <option value="5000">5,000원 이하</option>
+          <option value="10000">10,000원 이하</option>
+          <option value="15000">15,000원 이하</option>
+        </select>
+
+        <select
+          value={deliveryFee}
+          onChange={(e) => setDeliveryFee(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="">배달비 전체</option>
+          <option value="0">배달비 무료</option>
+          <option value="1000">1,000원 이하</option>
+          <option value="2000">2,000원 이하</option>
+          <option value="3000">3,000원 이하</option>
+        </select>
+      </div>
+
       <div style={{ marginTop: "30px" }}>
         <h2
           style={{
@@ -140,8 +182,8 @@ function StoreListPage() {
                 imageUrl={store.imageUrl}
                 isLiked={likedStoreIds.has(store.id)}
                 onToggleLike={handleToggleLike}
-                deliveryFee={store.deliveryFee} // 추가 정보 전달
-                minOrderAmount={store.minOrderAmount} // 추가 정보 전달
+                deliveryFee={store.deliveryFee}
+                minOrderAmount={store.minOrderAmount}
               />
             ))}
           </div>
@@ -155,6 +197,22 @@ const gridStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
   gap: "20px",
+};
+
+// ✅ 추가됨: 필터 UI 스타일링
+const filterContainerStyle = {
+  display: "flex",
+  gap: "10px",
+  marginTop: "15px",
+  marginBottom: "10px",
+};
+
+const selectStyle = {
+  padding: "8px",
+  borderRadius: "5px",
+  border: "1px solid #ddd",
+  fontSize: "0.9rem",
+  cursor: "pointer",
 };
 
 export default StoreListPage;

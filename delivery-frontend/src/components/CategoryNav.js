@@ -1,35 +1,52 @@
 import React from "react";
-import "./CategoryNav.css";
 
 function CategoryNav({ selectedCategory, onSelectCategory }) {
-  // 백엔드 ENUM 값과 일치시키는 것이 중요합니다!
+  // ✅ 카테고리 목록 정의 (ID는 DB와 일치시켜야 합니다)
   const categories = [
     { id: "", name: "전체" },
-    { id: "CHICKEN", name: "치킨" },
-    { id: "KOREAN_FOOD", name: "한식" },
-    { id: "CHINESE_FOOD", name: "중식" },
-    { id: "JAPANESE_FOOD", name: "일식" },
-    { id: "PIZZA", name: "피자" },
-    { id: "FAST_FOOD", name: "패스트푸드" },
-    { id: "CAFE_DESSERT", name: "카페/디저트" },
-    // ... 필요한 만큼 추가
+    { id: 1, name: "치킨" },
+    { id: 2, name: "피자" },
+    { id: 3, name: "한식" },
+    { id: 4, name: "중식" },
+    { id: 5, name: "일식" },
   ];
 
   return (
-    <div className="category-nav">
+    <nav style={navStyle}>
       {categories.map((cat) => (
         <button
           key={cat.id}
-          className={`category-btn ${
-            selectedCategory === cat.id ? "active" : ""
-          }`}
-          onClick={() => onSelectCategory(cat.id)}
+          onClick={() => onSelectCategory(cat.id)} // ✅ 이제 숫자를 넘깁니다.
+          style={{
+            ...buttonStyle,
+            // ✅ 비교 로직도 숫자 타입에 맞게 작동합니다.
+            backgroundColor:
+              selectedCategory === cat.id ? "#ff6b6b" : "#f1f3f5",
+            color: selectedCategory === cat.id ? "#white" : "#333",
+            fontWeight: selectedCategory === cat.id ? "bold" : "normal",
+          }}
         >
           {cat.name}
         </button>
       ))}
-    </div>
+    </nav>
   );
 }
+
+const navStyle = {
+  display: "flex",
+  gap: "10px",
+  overflowX: "auto",
+  padding: "10px 0",
+};
+
+const buttonStyle = {
+  padding: "8px 16px",
+  borderRadius: "20px",
+  border: "none",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  transition: "all 0.2s",
+};
 
 export default CategoryNav;
