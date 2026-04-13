@@ -131,6 +131,7 @@ function App() {
           <Route path="/store/:storeId/orders" element={<OwnerOrderPage />} />
           <Route path="/rider" element={<RiderPage />} />
           <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+          <Route path="/owner/orders" element={<OwnerOrderPage />} />
         </Routes>
       </main>
     </div>
