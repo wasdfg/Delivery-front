@@ -14,22 +14,18 @@ function CartPage() {
   const [selectedCouponId, setSelectedCouponId] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
 
-  // 1. 가게 정보 유치 (첫 번째 아이템 기준)
+  // 1. 가게 정보 유치 (백엔드에서 내려준 첫 번째 아이템 데이터 기준)
   const storeId = cartItems.length > 0 ? cartItems[0].storeId : null;
-  const deliveryFee =
-    cartItems.length > 0 ? cartItems[0].deliveryFee || 3000 : 0;
+  const deliveryFee = cartItems.length > 0 ? cartItems[0].deliveryFee || 0 : 0;
   const minOrderPrice =
     cartItems.length > 0 ? cartItems[0].minOrderAmount || 0 : 0;
 
-  // ✅ [추가] 개별 아이템의 (기본가 + 옵션가 합산) 계산 함수
+  // 개별 아이템의 총액 (단가 * 수량)
   const getItemTotalPrice = (item) => {
-    const optionsSum = item.cartOptions
-      ? item.cartOptions.reduce((acc, opt) => acc + opt.price, 0)
-      : 0;
-    return (item.price + optionsSum) * item.quantity;
+    return item.unitPrice * item.quantity;
   };
 
-  // ✅ [수정] 옵션가가 반영된 전체 상품 총액
+  // 전체 상품 총액
   const itemTotal = cartItems.reduce(
     (sum, item) => sum + getItemTotalPrice(item),
     0
@@ -90,15 +86,12 @@ function CartPage() {
     }
 
     try {
-      // ✅ [수정] 백엔드 OrderRequest 구조에 맞춰 optionIds 포함
       const orderData = {
         storeId: storeId,
         orderItems: cartItems.map((item) => ({
-          productId: item.productId || item.id,
+          productId: item.productId,
           quantity: item.quantity,
-          optionIds: item.cartOptions
-            ? item.cartOptions.map((o) => o.optionId)
-            : [],
+          optionIds: item.options ? item.options.map((o) => o.optionId) : [],
         })),
         userCouponId: selectedCouponId ? Number(selectedCouponId) : null,
         totalPrice: finalPrice,
@@ -119,8 +112,6 @@ function CartPage() {
   const handleQuantityChange = (cartItemId, newQuantity) => {
     const quantity = parseInt(newQuantity);
     if (isNaN(quantity) || quantity < 1) return;
-
-    // Context의 업데이트 함수 호출 (단순 수량 변경)
     updateQuantity(cartItemId, quantity);
   };
 
@@ -151,21 +142,20 @@ function CartPage() {
 
       <div className="cart-item-list" style={{ marginTop: "40px" }}>
         {cartItems.map((item) => (
-          <div key={item.id} className="cart-item" style={itemStyle}>
+          <div key={item.cartItemId} className="cart-item" style={itemStyle}>
             <img
               src={`http://localhost:8080${item.imageUrl}`}
-              alt={item.name}
+              alt={item.productName}
               style={imgStyle}
             />
             <div style={{ flex: 1 }}>
-              <h4 style={{ margin: "0" }}>{item.name}</h4>
+              <h4 style={{ margin: "0" }}>{item.productName}</h4>
 
-              {/* ✅ [추가] 선택한 옵션들을 회색 박스 안에 표시 */}
-              {item.cartOptions && item.cartOptions.length > 0 && (
+              {item.options && item.options.length > 0 && (
                 <div style={optionContainerStyle}>
-                  {item.cartOptions.map((opt, idx) => (
+                  {item.options.map((opt, idx) => (
                     <div key={idx} style={optionItemStyle}>
-                      └ {opt.name} (+{opt.price.toLocaleString()}원)
+                      └ {opt.name} (+{opt.additionalPrice?.toLocaleString()}원)
                     </div>
                   ))}
                 </div>
@@ -184,12 +174,12 @@ function CartPage() {
                   value={item.quantity}
                   min="1"
                   onChange={(e) =>
-                    handleQuantityChange(item.id, e.target.value)
+                    handleQuantityChange(item.cartItemId, e.target.value)
                   }
                   style={{ width: "45px", padding: "5px" }}
                 />
                 <button
-                  onClick={() => removeFromCart(item.id)}
+                  onClick={() => removeFromCart(item.cartItemId)}
                   style={removeBtnStyle}
                 >
                   삭제
@@ -197,7 +187,6 @@ function CartPage() {
               </div>
             </div>
             <div style={{ fontWeight: "bold", textAlign: "right" }}>
-              {/* ✅ [수정] 옵션가가 합산된 아이템 가격 표시 */}
               {getItemTotalPrice(item).toLocaleString()}원
             </div>
           </div>
@@ -262,7 +251,6 @@ function CartPage() {
   );
 }
 
-// --- Styles ---
 const itemStyle = {
   display: "flex",
   gap: "15px",
@@ -312,8 +300,6 @@ const clearBtnStyle = {
   background: "none",
   cursor: "pointer",
 };
-
-// ✅ 추가된 옵션 스타일
 const optionContainerStyle = {
   marginTop: "5px",
   padding: "5px 10px",
@@ -325,7 +311,6 @@ const optionItemStyle = {
   color: "#495057",
   lineHeight: "1.4",
 };
-
 const orderBtnStyle = (active) => ({
   width: "100%",
   padding: "15px",
