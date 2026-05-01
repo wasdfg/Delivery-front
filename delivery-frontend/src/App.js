@@ -132,6 +132,7 @@ function App() {
           <Route path="/rider" element={<RiderPage />} />
           <Route path="/orders/:orderId" element={<OrderDetailPage />} />
           <Route path="/owner/orders" element={<OwnerOrderPage />} />
+          <Route path="/favorites" element={<MyFavoritesPage />} />
         </Routes>
       </main>
     </div>

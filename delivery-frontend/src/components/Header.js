@@ -196,6 +196,16 @@ function Header() {
               <Link to="/mypage" className="nav-link">
                 마이페이지
               </Link>
+              <Link
+                to="/favorites"
+                style={{
+                  textDecoration: "none",
+                  color: "#333",
+                  marginRight: "15px",
+                }}
+              >
+                찜한 가게 ❤️
+              </Link>
               <Link to="/orders" className="nav-link">
                 주문 내역
               </Link>
