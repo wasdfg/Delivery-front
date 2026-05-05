@@ -1,48 +1,123 @@
-import React, { useState, useEffect } from "react";
-import { useCart } from "../contexts/CartContext";
-import "./CartPage.css";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import "./CartPage.css";
 
 function CartPage() {
-  const { cartItems, removeFromCart, clearCart, updateQuantity } = useCart();
   const { isLoggedIn, token } = useAuth();
   const navigate = useNavigate();
+
+  // ✅ 프론트엔드 로컬 상태(useCart) 대신, 백엔드에서 받아올 상태
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [coupons, setCoupons] = useState([]);
   const [selectedCouponId, setSelectedCouponId] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
 
-  // 1. 가게 정보 유치 (백엔드에서 내려준 첫 번째 아이템 데이터 기준)
+  // 1. 장바구니 및 쿠폰 데이터 불러오기
+  const fetchData = useCallback(async () => {
+    if (!isLoggedIn || !token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const [cartRes, couponRes] = await Promise.all([
+        axios.get("http://localhost:8080/api/cart", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get("http://localhost:8080/api/coupons/my", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      // 백엔드 CartResponse 규격에 맞춰 items 배열 추출
+      setCartItems(cartRes.data.items || []);
+      setCoupons(couponRes.data || []);
+    } catch (err) {
+      console.error("데이터 로딩 실패:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [isLoggedIn, token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // 2. 파생 상태 계산 (가게 정보, 배달비, 총액 등)
   const storeId = cartItems.length > 0 ? cartItems[0].storeId : null;
   const deliveryFee = cartItems.length > 0 ? cartItems[0].deliveryFee || 0 : 0;
   const minOrderPrice =
     cartItems.length > 0 ? cartItems[0].minOrderAmount || 0 : 0;
 
-  // 개별 아이템의 총액 (단가 * 수량)
   const getItemTotalPrice = (item) => {
-    return item.unitPrice * item.quantity;
+    // 백엔드 필드명에 따라 price 또는 unitPrice 사용
+    const price = item.price || item.unitPrice || 0;
+    return price * item.quantity;
   };
 
-  // 전체 상품 총액
   const itemTotal = cartItems.reduce(
     (sum, item) => sum + getItemTotalPrice(item),
     0
   );
-
   const finalPrice = Math.max(0, itemTotal + deliveryFee - discountAmount);
 
-  useEffect(() => {
-    if (isLoggedIn && token) {
-      axios
-        .get("http://localhost:8080/api/coupons/my", {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .then((res) => setCoupons(res.data))
-        .catch((err) => console.error("쿠폰 로딩 실패:", err));
+  // 3. 수량 변경 (PATCH)
+  const handleQuantityChange = async (cartItemId, newQuantity) => {
+    const quantity = parseInt(newQuantity);
+    if (isNaN(quantity) || quantity < 1) return;
+
+    try {
+      // Body에 CartItemUpdateRequest 구조로 데이터 전송
+      await axios.patch(
+        `http://localhost:8080/api/cart/items/${cartItemId}`,
+        { quantity: quantity },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // 성공 시 프론트엔드 상태 즉시 업데이트 (빠른 UI 반영)
+      setCartItems((prev) =>
+        prev.map((item) =>
+          item.cartItemId === cartItemId
+            ? { ...item, quantity: quantity }
+            : item
+        )
+      );
+    } catch (error) {
+      alert("수량 변경에 실패했습니다.");
     }
-  }, [isLoggedIn, token]);
+  };
+
+  // 4. 단건 삭제 (DELETE)
+  const handleRemoveItem = async (cartItemId) => {
+    try {
+      await axios.delete(`http://localhost:8080/api/cart/items/${cartItemId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCartItems((prev) =>
+        prev.filter((item) => item.cartItemId !== cartItemId)
+      );
+    } catch (error) {
+      alert("상품 삭제에 실패했습니다.");
+    }
+  };
+
+  // 5. 전체 비우기 (DELETE)
+  const handleClearCart = async () => {
+    if (!window.confirm("장바구니를 모두 비우시겠습니까?")) return;
+    try {
+      await axios.delete("http://localhost:8080/api/cart/clear", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCartItems([]);
+    } catch (error) {
+      alert("장바구니 비우기에 실패했습니다.");
+    }
+  };
 
   const handleCouponSelect = (e) => {
     const cId = e.target.value;
@@ -102,18 +177,24 @@ function CartPage() {
       });
 
       alert("주문이 성공적으로 접수되었습니다! 🙇🏻‍♂️");
-      clearCart();
+
+      // 주문 성공 시 백엔드 장바구니 비우기
+      await axios.delete("http://localhost:8080/api/cart/clear", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCartItems([]);
+
       navigate("/orders");
     } catch (error) {
       alert(error.response?.data?.message || "주문에 실패했습니다.");
     }
   };
 
-  const handleQuantityChange = (cartItemId, newQuantity) => {
-    const quantity = parseInt(newQuantity);
-    if (isNaN(quantity) || quantity < 1) return;
-    updateQuantity(cartItemId, quantity);
-  };
+  if (loading) {
+    return (
+      <div style={{ padding: "40px", textAlign: "center" }}>로딩 중... 🛒</div>
+    );
+  }
 
   if (cartItems.length === 0) {
     return (
@@ -136,7 +217,7 @@ function CartPage() {
       style={{ maxWidth: "600px", margin: "0 auto", padding: "20px" }}
     >
       <h2>장바구니</h2>
-      <button onClick={clearCart} style={clearBtnStyle}>
+      <button onClick={handleClearCart} style={clearBtnStyle}>
         전체삭제
       </button>
 
@@ -147,6 +228,9 @@ function CartPage() {
               src={`http://localhost:8080${item.imageUrl}`}
               alt={item.productName}
               style={imgStyle}
+              onError={(e) => {
+                e.target.src = "https://via.placeholder.com/70";
+              }}
             />
             <div style={{ flex: 1 }}>
               <h4 style={{ margin: "0" }}>{item.productName}</h4>
@@ -155,7 +239,11 @@ function CartPage() {
                 <div style={optionContainerStyle}>
                   {item.options.map((opt, idx) => (
                     <div key={idx} style={optionItemStyle}>
-                      └ {opt.name} (+{opt.additionalPrice?.toLocaleString()}원)
+                      └ {opt.name} (+
+                      {opt.additionalPrice?.toLocaleString() ||
+                        opt.price?.toLocaleString() ||
+                        0}
+                      원)
                     </div>
                   ))}
                 </div>
@@ -179,7 +267,7 @@ function CartPage() {
                   style={{ width: "45px", padding: "5px" }}
                 />
                 <button
-                  onClick={() => removeFromCart(item.cartItemId)}
+                  onClick={() => handleRemoveItem(item.cartItemId)}
                   style={removeBtnStyle}
                 >
                   삭제
@@ -200,7 +288,7 @@ function CartPage() {
             <option value="">쿠폰 선택</option>
             {coupons.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} (-{c.discountAmount}원)
+                {c.name} (-{c.discountAmount.toLocaleString()}원)
               </option>
             ))}
           </select>
@@ -251,6 +339,7 @@ function CartPage() {
   );
 }
 
+// --- Style Objects ---
 const itemStyle = {
   display: "flex",
   gap: "15px",
