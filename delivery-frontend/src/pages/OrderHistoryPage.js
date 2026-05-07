@@ -1,46 +1,79 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { useAuth } from "../contexts/AuthContext"; // 토큰 필요
-import "./OrderHistoryPage.css"; // 스타일 파일 (다음 단계에서 생성)
+import { useAuth } from "../contexts/AuthContext";
+import "./OrderHistoryPage.css";
 import { useNavigate } from "react-router-dom";
 
+// 백엔드 상태값을 한글 텍스트로 변환하기 위한 맵핑 객체
+const STATUS_MAP = {
+  PENDING: "접수 대기중",
+  ACCEPTED: "조리중",
+  DELIVERING: "배달중",
+  COMPLETED: "배달 완료",
+  CANCELED: "주문 취소",
+};
+
 function OrderHistoryPage() {
-  const { token } = useAuth();
+  const { token, isLoggedIn } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // 리뷰 쓰기 페이지 이동
   const handleWriteReview = (orderId, storeId, storeName) => {
-    // navigate의 두 번째 인자(state)로 데이터를 넘겨주면,
-    // 이동한 페이지에서 useLocation()으로 받을 수 있습니다.
     navigate("/review/write", {
       state: { orderId, storeId, storeName },
     });
   };
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        // 1. 백엔드 주문 내역 조회 API 호출 (GET)
-        // (API 주소는 백엔드 컨트롤러에 따라 다를 수 있으니 확인 필요: 예: /api/orders 또는 /api/users/orders)
-        const response = await axios.get("http://localhost:8080/api/orders", {
-          headers: {
-            Authorization: `Bearer ${token}`, // 인증 토큰 필수
-          },
-        });
+  // 주문 취소 API 호출 (백엔드 cancelOrder 메서드 연동)
+  const handleCancelOrder = async (orderId) => {
+    const reason = prompt("주문 취소 사유를 입력해주세요. (예: 단순 변심)");
+    if (!reason) return;
 
-        // 2. 가져온 주문 목록을 state에 저장 (최신순 정렬이 안 되어있다면 여기서 sort)
-        setOrders(response.data);
-      } catch (error) {
-        console.error("주문 내역을 불러오는데 실패했습니다.", error);
-      }
+    try {
+      await axios.post(
+        `http://localhost:8080/api/orders/${orderId}/cancel`, // 백엔드 URL에 맞춰 수정 필요할 수 있음
+        { reason: reason },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert("주문이 성공적으로 취소되었습니다.");
+      fetchOrders(); // 취소 후 목록 새로고침
+    } catch (error) {
+      alert(error.response?.data?.message || "주문 취소에 실패했습니다.");
+    }
+  };
+
+  // 주문 내역 조회 API 호출
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      // 백엔드 OrderController의 내 주문 내역 조회 URL (예: /api/orders/my)
+      const response = await axios.get("http://localhost:8080/api/orders/my", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // 백엔드가 Page 객체로 반환하므로 배열은 content 안에 들어있습니다.
+      setOrders(response.data.content || []);
+    } catch (error) {
+      console.error("주문 내역을 불러오는데 실패했습니다.", error);
+    } finally {
       setLoading(false);
-    };
+    }
+  };
 
+  useEffect(() => {
+    if (!isLoggedIn) {
+      alert("로그인이 필요합니다.");
+      navigate("/login");
+      return;
+    }
     if (token) {
       fetchOrders();
     }
-  }, [token]);
+  }, [token, isLoggedIn, navigate]);
 
   if (loading) return <div>주문 내역을 불러오는 중...</div>;
 
@@ -53,45 +86,76 @@ function OrderHistoryPage() {
       ) : (
         <div className="order-list">
           {orders.map((order) => (
-            <div key={order.id} className="order-card">
+            // DTO 필드명 orderId 적용
+            <div key={order.orderId} className="order-card">
               <div className="order-header">
-                {/* 가게 이름 (백엔드 DTO에 storeName이 있다고 가정) */}
                 <h3>{order.storeName || "가게 이름"}</h3>
-                <span className={`order-status status-${order.orderStatus}`}>
-                  {order.orderStatus} {/* 예: PENDING, DELIVERING, COMPLETED */}
+
+                {/* CSS 클래스 동적 할당 및 한글 상태 표시 */}
+                <span
+                  className={`order-status status-${order.status.toLowerCase()}`}
+                >
+                  {STATUS_MAP[order.status] || order.status}
                 </span>
               </div>
 
               <div className="order-date">
-                {/* 날짜 포맷팅 */}
-                {new Date(order.orderedAt).toLocaleString("ko-KR")}
+                {/* DTO 필드명 requestedAt 적용 */}
+                {new Date(order.requestedAt).toLocaleString("ko-KR")}
               </div>
 
               <div className="order-items">
-                {/* 주문한 메뉴 요약 표시 (예: 후라이드 치킨 외 2개) */}
-                {order.orderItems.map((item) => (
-                  <div key={item.id} className="order-item-row">
+                {order.orderItems.map((item, idx) => (
+                  // DTO 구조에 맞게 수정 (id가 없으면 idx 사용, 메뉴명은 productName)
+                  <div key={idx} className="order-item-row">
                     <span>
-                      {item.menuName} x {item.quantity}
+                      {item.productName} x {item.quantity}
                     </span>
-                    {/* 가격 정보가 있다면 표시 */}
                   </div>
                 ))}
               </div>
 
               <div className="order-footer">
                 <strong>
-                  총 결제금액: {order.totalPrice.toLocaleString("ko-KR")}원
+                  총 결제금액: {order.totalPrice?.toLocaleString("ko-KR")}원
                 </strong>
 
-                <button
-                  className="review-btn"
-                  onClick={() =>
-                    handleWriteReview(order.id, order.storeId, order.storeName)
-                  }
-                >
-                  ✍️ 리뷰 쓰기
-                </button>
+                <div className="button-group">
+                  {/* 접수 대기중일 때만 주문 취소 버튼 표시 */}
+                  {order.status === "PENDING" && (
+                    <button
+                      className="cancel-btn"
+                      onClick={() => handleCancelOrder(order.orderId)}
+                      style={{
+                        marginRight: "10px",
+                        backgroundColor: "#ff5252",
+                        color: "white",
+                        border: "none",
+                        padding: "8px 12px",
+                        borderRadius: "5px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      ❌ 주문 취소
+                    </button>
+                  )}
+
+                  {/* 배달 완료일 때만 리뷰 쓰기 버튼 표시 */}
+                  {order.status === "COMPLETED" && (
+                    <button
+                      className="review-btn"
+                      onClick={() =>
+                        handleWriteReview(
+                          order.orderId,
+                          order.storeId,
+                          order.storeName
+                        )
+                      }
+                    >
+                      ✍️ 리뷰 쓰기
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
