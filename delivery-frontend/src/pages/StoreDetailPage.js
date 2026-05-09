@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import MenuCard from "../components/MenuCard";
 import ReviewCard from "../components/ReviewCard";
-import ProductOptionModal from "../components/ProductOptionModal"; // [추가] 옵션 모달 컴포넌트
+import ProductOptionModal from "../components/ProductOptionModal";
 import { toast } from "react-toastify";
 
 function StoreDetailPage() {
@@ -16,7 +16,6 @@ function StoreDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isBlacklisted, setIsBlacklisted] = useState(false);
 
-  // [추가] 옵션 모달 제어를 위한 상태
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   const isOwner = localStorage.getItem("userRole") === "OWNER";
@@ -72,7 +71,7 @@ function StoreDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  // [추가] 장바구니 담기 요청 함수
+  // 🚨 [수정됨] 장바구니 담기 요청 함수: 다른 가게 메뉴 처리 로직 추가
   const handleAddToCart = async (cartData) => {
     if (!token) {
       toast.warn("로그인이 필요한 서비스입니다.");
@@ -81,15 +80,46 @@ function StoreDetailPage() {
     }
 
     try {
+      // 1. 정상적으로 장바구니 담기 시도
       await axios.post("http://localhost:8080/api/cart/items", cartData, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success("🛒 장바구니에 상품을 담았습니다.");
       setSelectedProduct(null); // 성공 시 모달 닫기
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "장바구니 담기에 실패했습니다."
-      );
+      // 백엔드 에러 메시지 추출 (구조에 따라 data 또는 data.message 일 수 있음)
+      const errorMessage =
+        error.response?.data?.message || error.response?.data;
+
+      // 2. "DIFFERENT_STORE" 에러를 받았을 때의 처리
+      if (errorMessage === "DIFFERENT_STORE") {
+        const wantToClear = window.confirm(
+          "장바구니에는 같은 가게의 메뉴만 담을 수 있습니다.\n기존 장바구니를 비우고 새로 담으시겠습니까?"
+        );
+
+        if (wantToClear) {
+          try {
+            // 3. 비우기 API 호출
+            await axios.delete("http://localhost:8080/api/cart/clear", {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            // 4. 비우고 난 후, 아까 실패했던 장바구니 담기 다시 시도!
+            await axios.post("http://localhost:8080/api/cart/items", cartData, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            toast.success("🧹 기존 장바구니를 비우고 새로 담았습니다!");
+            setSelectedProduct(null); // 모달 닫기
+          } catch (retryError) {
+            console.error("다시 담기 실패:", retryError);
+            toast.error("장바구니를 비우고 새로 담는 중 문제가 발생했습니다.");
+          }
+        }
+      } else {
+        // 그 외의 일반적인 에러
+        toast.error(errorMessage || "장바구니 담기에 실패했습니다.");
+      }
     }
   };
 
@@ -208,7 +238,6 @@ function StoreDetailPage() {
             products.map((product) => (
               <div
                 key={product.id}
-                // [수정] 사장님이 아니거나 차단되지 않았을 때만 모달 열기 가능
                 onClick={() =>
                   !isOwner &&
                   !isBlacklisted &&
@@ -233,7 +262,7 @@ function StoreDetailPage() {
         </div>
       </section>
 
-      {/* [추가] 메뉴 클릭 시 나타나는 옵션 선택 모달 */}
+      {/* 옵션 선택 모달 */}
       {selectedProduct && (
         <ProductOptionModal
           product={selectedProduct}
