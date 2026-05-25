@@ -7,112 +7,191 @@ import axios from "axios";
 
 function Header() {
   const navigate = useNavigate();
-  const { isLoggedIn, logout } = useAuth();
+
+  const { isLoggedIn, logout, user } = useAuth();
   const { cartItems } = useCart();
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotiOpen, setIsNotiOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-
-  // ✅ 추가: 현재 삭제 애니메이션이 진행 중인 알림 ID들을 보관
   const [deletingIds, setDeletingIds] = useState([]);
 
+  const token = localStorage.getItem("token");
+
+  const authHeader = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+
+  // =========================
+  // 알림 개수 조회
+  // =========================
   const fetchUnreadCount = async () => {
     try {
-      const res = await axios.get("/api/notifications/unread-count");
+      const res = await axios.get(
+        "/api/notifications/unread-count",
+        authHeader
+      );
+
       setUnreadCount(res.data);
     } catch (err) {
       console.error("알림 개수 조회 실패:", err);
     }
   };
 
+  // =========================
+  // 알림 목록 조회
+  // =========================
   const fetchNotifications = async () => {
     try {
-      const res = await axios.get("/api/notifications");
+      const res = await axios.get("/api/notifications", authHeader);
+
       setNotifications(res.data);
     } catch (err) {
       console.error("알림 목록 조회 실패:", err);
     }
   };
 
+  // =========================
+  // 전체 읽음 처리
+  // =========================
   const handleReadAll = async () => {
     try {
-      await axios.patch("/api/notifications/read-all");
+      await axios.patch("/api/notifications/read-all", {}, authHeader);
 
       setNotifications((prev) =>
-        prev.map((noti) => ({ ...noti, isRead: true }))
+        prev.map((noti) => ({
+          ...noti,
+          isRead: true,
+        }))
       );
+
       setUnreadCount(0);
     } catch (err) {
       console.error("전체 읽음 처리 실패:", err);
-      alert("알림 읽음 처리에 실패했습니다.");
+      alert("전체 읽음 처리에 실패했습니다.");
     }
   };
 
-  // ✅ 수정: 슬라이드 모션이 적용된 개별 삭제 함수
+  // =========================
+  // 알림 삭제
+  // =========================
   const handleDelete = async (e, notiId) => {
-    e.stopPropagation(); // 알림 클릭 이벤트(페이지 이동)가 실행되지 않도록 막음
-    try {
-      // 1. 서버에 삭제 요청
-      await axios.delete(`/api/notifications/${notiId}`);
+    e.stopPropagation();
 
-      // 2. 해당 알림을 '삭제 중' 상태로 만들어 애니메이션(클래스) 트리거
+    try {
+      await axios.delete(`/api/notifications/${notiId}`, authHeader);
+
       setDeletingIds((prev) => [...prev, notiId]);
 
-      // 3. 400ms(애니메이션 시간) 대기 후, 실제로 리스트에서 제거
       setTimeout(() => {
-        setNotifications((prev) => prev.filter((noti) => noti.id !== notiId));
-        setDeletingIds((prev) => prev.filter((id) => id !== notiId)); // 상태 정리
-
-        // 만약 안 읽은 알림을 지웠다면 숫자도 1 감소시킴
         const deletedNoti = notifications.find((n) => n.id === notiId);
+
+        setNotifications((prev) => prev.filter((noti) => noti.id !== notiId));
+
+        setDeletingIds((prev) => prev.filter((id) => id !== notiId));
+
         if (deletedNoti && !deletedNoti.isRead) {
           setUnreadCount((prev) => Math.max(0, prev - 1));
         }
-      }, 400); // CSS의 transition 시간(0.4초)과 맞춰주세요.
+      }, 400);
     } catch (err) {
       console.error("알림 삭제 실패:", err);
     }
   };
 
+  // =========================
+  // 실시간 unread count 갱신 이벤트
+  // =========================
   useEffect(() => {
-    if (isLoggedIn) {
+    if (!isLoggedIn) return;
+
+    fetchUnreadCount();
+
+    const handleUpdateNoti = () => {
       fetchUnreadCount();
+    };
 
-      const handleUpdateNoti = () => {
-        fetchUnreadCount();
-      };
+    window.addEventListener("updateUnreadCount", handleUpdateNoti);
 
-      window.addEventListener("updateUnreadCount", handleUpdateNoti);
-      return () =>
-        window.removeEventListener("updateUnreadCount", handleUpdateNoti);
-    }
+    return () => {
+      window.removeEventListener("updateUnreadCount", handleUpdateNoti);
+    };
   }, [isLoggedIn]);
 
+  // =========================
+  // 알림 드롭다운 열기
+  // =========================
   const toggleNotiDropdown = () => {
     const nextState = !isNotiOpen;
+
     setIsNotiOpen(nextState);
-    if (nextState) fetchNotifications();
+
+    if (nextState) {
+      fetchNotifications();
+    }
   };
 
+  // =========================
+  // 알림 클릭
+  // =========================
   const handleNotiClick = async (noti) => {
     try {
+      // 읽지 않은 경우 읽음 처리
       if (!noti.isRead) {
-        await axios.patch(`/api/notifications/${noti.id}/read`);
+        await axios.patch(`/api/notifications/${noti.id}/read`, {}, authHeader);
+
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
+
       setIsNotiOpen(false);
-      navigate(noti.targetUrl);
+
+      // 타입별 이동 처리
+      switch (noti.type) {
+        case "NEW_ORDER":
+          navigate(noti.targetUrl);
+          break;
+
+        case "ORDER_STATUS_CHANGED":
+          navigate(noti.targetUrl);
+          break;
+
+        case "DELIVERY_STARTED":
+          navigate(noti.targetUrl);
+          break;
+
+        case "DELIVERY_COMPLETED":
+          navigate(noti.targetUrl);
+          break;
+
+        case "RIDER_ARRIVING":
+          navigate(noti.targetUrl);
+          break;
+
+        case "REVIEW_ADDED":
+          navigate(noti.targetUrl);
+          break;
+
+        default:
+          navigate(noti.targetUrl);
+      }
     } catch (err) {
       console.error("알림 읽음 처리 실패:", err);
     }
   };
 
+  // =========================
+  // 장바구니 수량 계산
+  // =========================
   const totalItems = cartItems.reduce(
     (total, item) => total + item.quantity,
     0
   );
 
+  // =========================
+  // 로그아웃
+  // =========================
   const handleLogout = () => {
     logout();
     navigate("/");
@@ -128,6 +207,9 @@ function Header() {
         <nav>
           {isLoggedIn ? (
             <>
+              {/* ========================= */}
+              {/* 알림 */}
+              {/* ========================= */}
               <div
                 className="nav-item-wrapper"
                 style={{ position: "relative" }}
@@ -136,7 +218,7 @@ function Header() {
                   onClick={toggleNotiDropdown}
                   className="nav-link-button bell-btn"
                 >
-                  🔔{" "}
+                  🔔
                   {unreadCount > 0 && (
                     <span className="noti-badge">{unreadCount}</span>
                   )}
@@ -146,6 +228,7 @@ function Header() {
                   <div className="noti-dropdown">
                     <div className="noti-header">
                       <span>최근 알림</span>
+
                       {unreadCount > 0 && (
                         <button
                           className="read-all-btn"
@@ -165,7 +248,6 @@ function Header() {
                         notifications.map((noti) => (
                           <div
                             key={noti.id}
-                            /* ✅ 수정: deletingIds에 포함되어 있으면 'deleting' 클래스 추가 */
                             className={`noti-item ${
                               noti.isRead ? "read" : "unread"
                             } ${
@@ -175,6 +257,7 @@ function Header() {
                           >
                             <div className="noti-content-wrapper">
                               <p className="noti-content">{noti.content}</p>
+
                               <button
                                 className="delete-btn"
                                 onClick={(e) => handleDelete(e, noti.id)}
@@ -182,6 +265,7 @@ function Header() {
                                 ✕
                               </button>
                             </div>
+
                             <span className="noti-date">
                               {new Date(noti.createdAt).toLocaleString()}
                             </span>
@@ -193,9 +277,14 @@ function Header() {
                 )}
               </div>
 
+              {/* ========================= */}
+              {/* 메뉴 */}
+              {/* ========================= */}
+
               <Link to="/mypage" className="nav-link">
                 마이페이지
               </Link>
+
               <Link
                 to="/favorites"
                 style={{
@@ -206,15 +295,34 @@ function Header() {
               >
                 찜한 가게 ❤️
               </Link>
+
               <Link to="/orders" className="nav-link">
                 주문 내역
               </Link>
+
+              {/* 사장님 */}
+              {user?.role === "OWNER" && (
+                <Link to="/owner/orders" className="nav-link">
+                  사장님 주문관리
+                </Link>
+              )}
+
+              {/* 라이더 */}
+              {user?.role === "RIDER" && (
+                <Link to="/rider" className="nav-link">
+                  라이더 페이지
+                </Link>
+              )}
+
+              {/* 장바구니 */}
               <Link to="/cart" className="nav-link">
                 🛒 장바구니
                 {totalItems > 0 && (
                   <span className="cart-badge">{totalItems}</span>
                 )}
               </Link>
+
+              {/* 로그아웃 */}
               <button onClick={handleLogout} className="nav-link-button">
                 로그아웃
               </button>
