@@ -301,10 +301,20 @@ function Header() {
               </Link>
 
               {/* 사장님 */}
-              {user?.role === "OWNER" && (
-                <Link to="/owner/orders" className="nav-link">
-                  사장님 주문관리
-                </Link>
+              {user?.role === "STORE_OWNER" && (
+                <>
+                  <Link to="/owner/store/create" className="nav-link">
+                    가게 등록
+                  </Link>
+
+                  <Link to="/owner/store" className="nav-link">
+                    내 가게
+                  </Link>
+
+                  <Link to="/owner/orders" className="nav-link">
+                    주문 관리
+                  </Link>
+                </>
               )}
 
               {/* 라이더 */}
@@ -328,9 +338,14 @@ function Header() {
               </button>
             </>
           ) : (
-            <Link to="/login" className="nav-link">
-              로그인
-            </Link>
+            <>
+              <Link to="/login" className="nav-link">
+                로그인
+              </Link>
+              <Link to="/signup" className="nav-link">
+                회원가입
+              </Link>
+            </>
           )}
         </nav>
       </div>

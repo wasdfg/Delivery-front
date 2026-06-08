@@ -102,6 +102,10 @@ function MyPage() {
           ✏️ 정보 수정
         </button>
 
+        <Link to="/change-password" className="nav-link">
+          비밀번호 변경
+        </Link>
+
         {/* ✅ 권한별 버튼 분기 */}
         {user?.role === "STORE_OWNER" ? (
           <button

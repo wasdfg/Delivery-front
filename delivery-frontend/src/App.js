@@ -29,6 +29,8 @@ import RiderPage from "./pages/RiderPage";
 import StoreEditPage from "./pages/StoreEditPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import MyFavoritesPage from "./pages/MyFavoritesPage";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
+import StoreCreatePage from "./pages/StoreCreatePage";
 
 const EventSource = EventSourcePolyfill || NativeEventSource;
 
@@ -230,6 +232,10 @@ function App() {
           <Route path="/rider" element={<RiderPage />} />
 
           <Route path="/favorites" element={<MyFavoritesPage />} />
+
+          <Route path="/change-password" element={<ChangePasswordPage />} />
+
+          <Route path="/owner/store/create" element={<StoreCreatePage />} />
         </Routes>
       </main>
     </div>

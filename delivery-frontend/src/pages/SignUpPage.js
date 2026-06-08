@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify"; // 일관된 알림 스타일
+import { toast } from "react-toastify";
 import "./LoginPage.css";
 
 function SignUpPage() {
@@ -9,16 +9,20 @@ function SignUpPage() {
 
   const [formData, setFormData] = useState({
     email: "",
+    idForLogin: "",
+    nickname: "",
     password: "",
     confirmPassword: "",
-    name: "",
     address: "",
     phone: "",
-    role: "USER", // 👈 기본 역할 설정 (USER, OWNER, RIDER)
+    role: "USER",
   });
 
   const [error, setError] = useState(null);
 
+  // =========================
+  // 입력값 변경
+  // =========================
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -26,13 +30,30 @@ function SignUpPage() {
     });
   };
 
+  // =========================
+  // 회원가입
+  // =========================
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError(null);
 
-    // 1. 유효성 검사
-    if (formData.password !== formData.confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다.");
+    // =========================
+    // 유효성 검사
+    // =========================
+
+    if (!formData.email.trim()) {
+      setError("이메일을 입력해주세요.");
+      return;
+    }
+
+    if (!formData.idForLogin.trim()) {
+      setError("아이디를 입력해주세요.");
+      return;
+    }
+
+    if (!formData.nickname.trim()) {
+      setError("닉네임을 입력해주세요.");
       return;
     }
 
@@ -41,25 +62,39 @@ function SignUpPage() {
       return;
     }
 
+    if (formData.password !== formData.confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
     try {
-      // 2. API 호출 (역할 정보 포함)
+      // =========================
+      // 회원가입 요청
+      // =========================
       await axios.post("http://localhost:8080/api/users/signup", {
         email: formData.email,
+        idForLogin: formData.idForLogin,
+        nickname: formData.nickname,
         password: formData.password,
-        name: formData.name,
         address: formData.address,
         phone: formData.phone,
-        role: formData.role, // 👈 백엔드에서 권한 분리용
+        role: formData.role,
       });
 
-      toast.success("가입을 축하드립니다! 로그인해주세요.");
-      // 가입한 이메일 정보를 들고 로그인 페이지로 이동
-      navigate("/login", { state: { email: formData.email } });
+      toast.success("회원가입이 완료되었습니다.");
+
+      // 로그인 페이지 이동
+      navigate("/login", {
+        state: {
+          idForLogin: formData.idForLogin,
+        },
+      });
     } catch (err) {
       const msg =
-        err.response?.data?.message ||
-        "이미 가입된 이메일이거나 형식이 잘못되었습니다.";
+        err.response?.data?.message || "회원가입 중 오류가 발생했습니다.";
+
       setError(msg);
+
       toast.error(msg);
     }
   };
@@ -71,21 +106,36 @@ function SignUpPage() {
         onSubmit={handleSubmit}
         style={{ maxWidth: "450px" }}
       >
-        <h1>서비스 시작하기</h1>
-        <p style={{ textAlign: "center", color: "#666", marginBottom: "20px" }}>
-          회원 정보를 입력하여 가입을 완료해주세요.
+        <h1>회원가입</h1>
+
+        <p
+          style={{
+            textAlign: "center",
+            color: "#666",
+            marginBottom: "20px",
+          }}
+        >
+          회원 정보를 입력해주세요.
         </p>
 
+        {/* ========================= */}
+        {/* 에러 메시지 */}
+        {/* ========================= */}
         {error && (
           <p
             className="error-message"
-            style={{ color: "red", textAlign: "center" }}
+            style={{
+              color: "red",
+              textAlign: "center",
+            }}
           >
             {error}
           </p>
         )}
 
-        {/* 역할 선택 - 라디오 버튼 형태 */}
+        {/* ========================= */}
+        {/* 역할 선택 */}
+        {/* ========================= */}
         <div
           className="role-selector"
           style={{
@@ -95,27 +145,46 @@ function SignUpPage() {
             marginBottom: "20px",
           }}
         >
-          {["USER", "OWNER", "RIDER"].map((r) => (
-            <label key={r} style={{ fontSize: "0.9rem", cursor: "pointer" }}>
+          {[
+            {
+              value: "USER",
+              label: "일반회원",
+            },
+            {
+              value: "STORE_OWNER",
+              label: "사장님",
+            },
+            {
+              value: "RIDER",
+              label: "라이더",
+            },
+          ].map((role) => (
+            <label
+              key={role.value}
+              style={{
+                fontSize: "0.9rem",
+                cursor: "pointer",
+              }}
+            >
               <input
                 type="radio"
                 id="role"
                 name="role"
-                value={r}
-                checked={formData.role === r}
+                value={role.value}
+                checked={formData.role === role.value}
                 onChange={handleChange}
-              />
-              {r === "USER"
-                ? " 일반회원"
-                : r === "OWNER"
-                ? " 사장님"
-                : " 라이더"}
+              />{" "}
+              {role.label}
             </label>
           ))}
         </div>
 
+        {/* ========================= */}
+        {/* 이메일 */}
+        {/* ========================= */}
         <div className="input-group">
           <label htmlFor="email">이메일</label>
+
           <input
             type="email"
             id="email"
@@ -126,42 +195,76 @@ function SignUpPage() {
           />
         </div>
 
+        {/* ========================= */}
+        {/* 로그인 아이디 */}
+        {/* ========================= */}
         <div className="input-group">
-          <label htmlFor="name">이름 (닉네임)</label>
+          <label htmlFor="idForLogin">아이디</label>
+
           <input
             type="text"
-            id="name"
-            value={formData.name}
+            id="idForLogin"
+            value={formData.idForLogin}
             onChange={handleChange}
             required
-            placeholder="홍길동"
+            placeholder="로그인 아이디 입력"
           />
         </div>
 
+        {/* ========================= */}
+        {/* 닉네임 */}
+        {/* ========================= */}
+        <div className="input-group">
+          <label htmlFor="nickname">닉네임</label>
+
+          <input
+            type="text"
+            id="nickname"
+            value={formData.nickname}
+            onChange={handleChange}
+            required
+            placeholder="닉네임 입력"
+          />
+        </div>
+
+        {/* ========================= */}
+        {/* 비밀번호 */}
+        {/* ========================= */}
         <div className="input-group">
           <label htmlFor="password">비밀번호</label>
+
           <input
             type="password"
             id="password"
             value={formData.password}
             onChange={handleChange}
             required
+            placeholder="비밀번호 입력"
           />
         </div>
 
+        {/* ========================= */}
+        {/* 비밀번호 확인 */}
+        {/* ========================= */}
         <div className="input-group">
           <label htmlFor="confirmPassword">비밀번호 확인</label>
+
           <input
             type="password"
             id="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleChange}
             required
+            placeholder="비밀번호 다시 입력"
           />
         </div>
 
+        {/* ========================= */}
+        {/* 전화번호 */}
+        {/* ========================= */}
         <div className="input-group">
           <label htmlFor="phone">전화번호</label>
+
           <input
             type="tel"
             id="phone"
@@ -171,29 +274,50 @@ function SignUpPage() {
           />
         </div>
 
+        {/* ========================= */}
+        {/* 주소 */}
+        {/* ========================= */}
         <div className="input-group">
-          <label htmlFor="address">기본 배송 주소</label>
+          <label htmlFor="address">주소</label>
+
           <input
             type="text"
             id="address"
             value={formData.address}
             onChange={handleChange}
-            placeholder="주소를 입력하세요"
+            placeholder="기본 배송 주소 입력"
           />
         </div>
 
+        {/* ========================= */}
+        {/* 회원가입 버튼 */}
+        {/* ========================= */}
         <button
           type="submit"
           className="login-button"
           style={{ marginTop: "20px" }}
         >
-          가입 완료
+          회원가입
         </button>
 
-        <div style={{ textAlign: "center", marginTop: "15px" }}>
-          <span style={{ fontSize: "0.9rem", color: "#888" }}>
-            이미 계정이 있으신가요?{" "}
+        {/* ========================= */}
+        {/* 로그인 이동 */}
+        {/* ========================= */}
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: "15px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "0.9rem",
+              color: "#888",
+            }}
+          >
+            이미 계정이 있으신가요?
           </span>
+
           <button
             type="button"
             onClick={() => navigate("/login")}
@@ -203,6 +327,7 @@ function SignUpPage() {
               color: "#339af0",
               cursor: "pointer",
               textDecoration: "underline",
+              marginLeft: "5px",
             }}
           >
             로그인하기
