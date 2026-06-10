@@ -107,7 +107,7 @@ function MyPage() {
         </Link>
 
         {/* ✅ 권한별 버튼 분기 */}
-        {user?.role === "STORE_OWNER" ? (
+        {user?.role === "STORE_OWNER" && (
           <button
             className="action-btn owner-btn"
             onClick={() => navigate("/owner/dashboard")}
@@ -115,13 +115,11 @@ function MyPage() {
           >
             🏪 내 가게 관리
           </button>
-        ) : (
-          <button
-            className="action-btn owner-btn"
-            onClick={() => navigate("/store/new")}
-            style={{ backgroundColor: "#f5f5f5" }}
-          >
-            🏪 가게 입점 문의
+        )}
+
+        {user?.role === "USER" && (
+          <button onClick={() => navigate("/owner/store/create")}>
+            가게 입점 문의
           </button>
         )}
 
@@ -184,6 +182,10 @@ function MyPage() {
         ))}
         {favoriteStores.length === 0 && <p>찜한 가게가 없습니다.</p>}
       </div>
+
+      <button className="action-btn" onClick={() => navigate("/withdraw")}>
+        회원 탈퇴
+      </button>
 
       <button
         onClick={() => {
