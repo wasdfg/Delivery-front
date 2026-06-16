@@ -34,12 +34,24 @@ function LoginPage() {
       console.log("로그인 성공");
       navigate("/");
     } catch (err) {
-      console.error("로그인 실패:", err);
-      // 서버에서 보내주는 구체적인 에러 메시지가 있다면 표시, 없으면 기본 메시지
-      setError(
-        err.response?.data?.message ||
-          "이메일 또는 비밀번호가 올바르지 않습니다."
-      );
+      const msg = err.response?.data?.message;
+
+      if (msg === "탈퇴한 계정입니다. 복구하시겠습니까?") {
+        const ok = window.confirm("탈퇴한 계정입니다.\n복구하시겠습니까?");
+
+        if (ok) {
+          await axios.post("/api/users/restore", {
+            idForLogin,
+            password,
+          });
+
+          toast.success("복구되었습니다. 다시 로그인해주세요.");
+
+          return;
+        }
+      }
+
+      toast.error(msg);
     } finally {
       setIsLoading(false); // 로딩 종료
     }

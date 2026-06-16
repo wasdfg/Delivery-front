@@ -31,6 +31,7 @@ import OrderDetailPage from "./pages/OrderDetailPage";
 import MyFavoritesPage from "./pages/MyFavoritesPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import StoreCreatePage from "./pages/StoreCreatePage";
+import WithdrawPage from "./pages/WithdrawPage";
 
 const EventSource = EventSourcePolyfill || NativeEventSource;
 
@@ -236,6 +237,8 @@ function App() {
           <Route path="/change-password" element={<ChangePasswordPage />} />
 
           <Route path="/owner/store/create" element={<StoreCreatePage />} />
+
+          <Route path="/withdraw" element={<WithdrawPage />} />
         </Routes>
       </main>
     </div>
