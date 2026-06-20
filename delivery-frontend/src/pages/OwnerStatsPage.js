@@ -54,6 +54,12 @@ function OwnerStatsPage() {
 
   // 통계 조회
   const fetchStats = async () => {
+    if (dates.startDate > dates.endDate) {
+      toast.error("시작일은 종료일보다 이후일 수 없습니다.");
+
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -79,10 +85,15 @@ function OwnerStatsPage() {
     }
   };
 
+  const { user } = useAuth();
   // 최초 진입 시만 조회
   useEffect(() => {
-    fetchStats();
-  }, [storeId]);
+    if (user?.role !== "STORE_OWNER") {
+      navigate("/");
+
+      toast.error("사장님만 접근 가능합니다.");
+    }
+  }, []);
 
   // PDF 다운로드
   const downloadPdf = async () => {
@@ -235,7 +246,7 @@ function OwnerStatsPage() {
 
           <StatCard
             title="총 주문 수"
-            value={`${stats.totalOrderCount}건`}
+            value={`${stats.completedOrderCount}건`}
             color="#40c057"
             icon="📦"
           />
@@ -309,21 +320,24 @@ function OwnerStatsPage() {
             <PieChart>
               <Pie
                 data={stats.topMenus}
-                dataKey="count"
+                dataKey="orderCount"
                 nameKey="menuName"
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={5}
+                outerRadius={120}
+                label={({ menuName, percent }) =>
+                  `${menuName} ${(percent * 100).toFixed(0)}%`
+                }
+                labelLine={false}
               >
-                {stats.topMenus?.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                {stats.topMenus.map((_, index) => (
+                  <Cell key={index} />
                 ))}
               </Pie>
 
-              <Tooltip />
-              <Legend />
+              <Tooltip formatter={(value) => [`${value}회 주문`, "주문수"]} />
+
+              <Legend verticalAlign="bottom" height={50} />
             </PieChart>
           </ChartContainer>
         </div>
