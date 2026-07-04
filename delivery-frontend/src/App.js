@@ -32,6 +32,9 @@ import MyFavoritesPage from "./pages/MyFavoritesPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import StoreCreatePage from "./pages/StoreCreatePage";
 import WithdrawPage from "./pages/WithdrawPage";
+import AdminPage from "./pages/AdminPage";
+import AdminUserPage from "./pages/AdminUserPage";
+import AdminStorePage from "./pages/AdminStorePage";
 
 const EventSource = EventSourcePolyfill || NativeEventSource;
 
@@ -83,7 +86,7 @@ function App() {
               statusMsg[event.newStatus] || "주문 상태가 변경되었습니다.",
               {
                 onClick: () => navigate(`/orders/${event.orderId}`),
-              }
+              },
             );
 
             break;
@@ -164,7 +167,7 @@ function App() {
         },
 
         heartbeatTimeout: 3600000,
-      }
+      },
     );
 
     // =========================
@@ -239,6 +242,16 @@ function App() {
           <Route path="/owner/store/create" element={<StoreCreatePage />} />
 
           <Route path="/withdraw" element={<WithdrawPage />} />
+
+          <Route path="/admin" element={<AdminPage />}>
+            <Route path="users" element={<AdminUserPage />} />
+
+            <Route path="stores" element={<AdminStorePage />} />
+
+            <Route path="stats" element={<AdminStatsPage />} />
+
+            <Route path="settlements" element={<SettlementPage />} />
+          </Route>
         </Routes>
       </main>
     </div>
