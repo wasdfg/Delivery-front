@@ -2,9 +2,12 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 
 function AdminStorePage() {
   const { token } = useAuth();
+
+  const navigate = useNavigate();
 
   const [stores, setStores] = useState([]);
 
@@ -144,6 +147,7 @@ function AdminStorePage() {
             <th>점주</th>
             <th>운영</th>
             <th>삭제</th>
+            <th>통계</th>
           </tr>
         </thead>
 
@@ -180,6 +184,16 @@ function AdminStorePage() {
 
                   <option value={true}>삭제</option>
                 </select>
+              </td>
+
+              <td>
+                <button
+                  onClick={() =>
+                    navigate(`/admin/stats?storeId=${store.storeId}`)
+                  }
+                >
+                  통계
+                </button>
               </td>
             </tr>
           ))}
