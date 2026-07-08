@@ -11,22 +11,32 @@ function AdminStorePage() {
 
   const [stores, setStores] = useState([]);
 
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(false);
+
   const [condition, setCondition] = useState({
     keyword: "",
-    ownerId: "",
+    categoryId: "",
     active: "",
     deleted: "",
+    ownerId: "",
   });
 
   const [page, setPage] = useState(0);
 
   const fetchStores = async () => {
     try {
+      setLoading(true);
+
       const res = await axios.get("http://localhost:8080/api/admin/stores", {
         params: {
-          ...condition,
           page,
           size: 10,
+          keyword: condition.keyword,
+          categoryId: condition.categoryId || null,
+          active: condition.active,
+          deleted: condition.deleted,
+          ownerId: condition.ownerId || null,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -34,8 +44,13 @@ function AdminStorePage() {
       });
 
       setStores(res.data.content);
+      setTotalPages(res.data.totalPages);
     } catch {
-      toast.error("가게 조회 실패");
+      console.error(err);
+
+      toast.error(err.response?.data?.message ?? "가게 조회 실패");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,10 +81,16 @@ function AdminStorePage() {
   };
 
   const handleSearch = () => {
-    setPage(0);
-
-    fetchStores();
+    if (page !== 0) {
+      setPage(0);
+    } else {
+      fetchStores();
+    }
   };
+
+  if (loading) {
+    return <h3>조회 중...</h3>;
+  }
 
   return (
     <div>
@@ -103,6 +124,23 @@ function AdminStorePage() {
             })
           }
         />
+
+        <select
+          value={condition.categoryId}
+          onChange={(e) =>
+            setCondition({
+              ...condition,
+              categoryId: e.target.value,
+            })
+          }
+        >
+          {" "}
+          <option value="">전체 카테고리</option>
+          <option value="1">치킨</option>
+          <option value="2">피자</option>
+          <option value="3">한식</option>
+          ...
+        </select>
 
         <select
           value={condition.active}
@@ -163,9 +201,25 @@ function AdminStorePage() {
               <td>
                 <select
                   value={store.active}
-                  onChange={(e) =>
-                    updateStore(store.storeId, "active", e.target.value)
-                  }
+                  onChange={(e) => {
+                    const active = e.target.value === "true";
+
+                    if (active === store.active) {
+                      return;
+                    }
+
+                    if (
+                      !window.confirm(
+                        active
+                          ? "운영을 재개하시겠습니까?"
+                          : "운영을 중지하시겠습니까?",
+                      )
+                    ) {
+                      return;
+                    }
+
+                    updateStore(store.storeId, "active", active);
+                  }}
                 >
                   <option value={true}>운영</option>
 
@@ -176,9 +230,25 @@ function AdminStorePage() {
               <td>
                 <select
                   value={store.deleted}
-                  onChange={(e) =>
-                    updateStore(store.storeId, "deleted", e.target.value)
-                  }
+                  onChange={(e) => {
+                    const deleted = e.target.value === "true";
+
+                    if (deleted === store.deleted) {
+                      return;
+                    }
+
+                    if (
+                      !window.confirm(
+                        deleted
+                          ? "가게를 삭제 처리하시겠습니까?"
+                          : "삭제를 복구하시겠습니까?",
+                      )
+                    ) {
+                      return;
+                    }
+
+                    updateStore(store.storeId, "deleted", deleted);
+                  }}
                 >
                   <option value={false}>정상</option>
 
@@ -211,7 +281,12 @@ function AdminStorePage() {
           이전
         </button>
 
-        <button onClick={() => setPage(page + 1)}>다음</button>
+        <button
+          disabled={page + 1 >= totalPages}
+          onClick={() => setPage(page + 1)}
+        >
+          다음
+        </button>
       </div>
     </div>
   );
