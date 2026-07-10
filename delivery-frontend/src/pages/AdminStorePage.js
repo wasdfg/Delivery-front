@@ -3,6 +3,7 @@ import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import Pagination from "../components/Pagination";
 
 function AdminStorePage() {
   const { token } = useAuth();
@@ -270,24 +271,7 @@ function AdminStorePage() {
         </tbody>
       </table>
 
-      <div
-        style={{
-          marginTop: "20px",
-          display: "flex",
-          gap: "10px",
-        }}
-      >
-        <button disabled={page === 0} onClick={() => setPage(page - 1)}>
-          이전
-        </button>
-
-        <button
-          disabled={page + 1 >= totalPages}
-          onClick={() => setPage(page + 1)}
-        >
-          다음
-        </button>
-      </div>
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }

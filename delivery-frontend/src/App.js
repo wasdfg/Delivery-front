@@ -35,6 +35,7 @@ import WithdrawPage from "./pages/WithdrawPage";
 import AdminPage from "./pages/AdminPage";
 import AdminUserPage from "./pages/AdminUserPage";
 import AdminStorePage from "./pages/AdminStorePage";
+import AdminStatsPage from "./pages/AdminStatsPage";
 
 const EventSource = EventSourcePolyfill || NativeEventSource;
 

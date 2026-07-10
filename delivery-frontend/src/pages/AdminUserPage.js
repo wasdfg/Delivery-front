@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "react-toastify";
+import Pagination from "../components/Pagination";
 
 function AdminUserPage() {
   const { token } = useAuth();
@@ -212,24 +213,7 @@ function AdminUserPage() {
         </tbody>
       </table>
 
-      <div
-        style={{
-          marginTop: "20px",
-          display: "flex",
-          gap: "10px",
-        }}
-      >
-        <button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-          이전
-        </button>
-
-        <button
-          disabled={page + 1 >= totalPages}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          다음
-        </button>
-      </div>
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }
