@@ -36,6 +36,7 @@ import AdminPage from "./pages/AdminPage";
 import AdminUserPage from "./pages/AdminUserPage";
 import AdminStorePage from "./pages/AdminStorePage";
 import AdminStatsPage from "./pages/AdminStatsPage";
+import AdminUserDetailPage from "./pages/AdminUserDetailPage";
 
 const EventSource = EventSourcePolyfill || NativeEventSource;
 
@@ -246,6 +247,11 @@ function App() {
 
           <Route path="/admin" element={<AdminPage />}>
             <Route path="users" element={<AdminUserPage />} />
+
+            <Route
+              path="/admin/users/:userId"
+              element={<AdminUserDetailPage />}
+            />
 
             <Route path="stores" element={<AdminStorePage />} />
 
