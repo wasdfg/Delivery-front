@@ -187,6 +187,7 @@ function AdminStorePage() {
             <th>운영</th>
             <th>삭제</th>
             <th>통계</th>
+            <th>상세</th>
           </tr>
         </thead>
 
@@ -264,6 +265,14 @@ function AdminStorePage() {
                   }
                 >
                   통계
+                </button>
+              </td>
+
+              <td>
+                <button
+                  onClick={() => navigate(`/admin/stores/${store.storeId}`)}
+                >
+                  상세
                 </button>
               </td>
             </tr>
