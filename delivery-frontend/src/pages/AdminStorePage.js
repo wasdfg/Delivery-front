@@ -186,7 +186,6 @@ function AdminStorePage() {
             <th>점주</th>
             <th>운영</th>
             <th>삭제</th>
-            <th>통계</th>
             <th>상세</th>
           </tr>
         </thead>
@@ -256,16 +255,6 @@ function AdminStorePage() {
 
                   <option value={true}>삭제</option>
                 </select>
-              </td>
-
-              <td>
-                <button
-                  onClick={() =>
-                    navigate(`/admin/stats?storeId=${store.storeId}`)
-                  }
-                >
-                  통계
-                </button>
               </td>
 
               <td>

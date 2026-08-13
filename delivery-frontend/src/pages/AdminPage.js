@@ -100,6 +100,8 @@ function AdminPage() {
 
         <button onClick={() => navigate("/admin/stores")}>가게 관리</button>
 
+        <button onClick={() => navigate("/admin/stats")}>통계 관리</button>
+
         <button onClick={() => navigate("/admin/logs")}>관리자 로그</button>
       </div>
 
