@@ -15,7 +15,17 @@ function AdminLogPage() {
 
   const [loading, setLoading] = useState(false);
 
-  const fetchLogs = async () => {
+  // 검색 조건
+  const [condition, setCondition] = useState({
+    adminKeyword: "",
+    targetType: "",
+    action: "",
+    targetId: "",
+    startDate: "",
+    endDate: "",
+  });
+
+  const fetchLogs = async (searchCondition = condition) => {
     try {
       setLoading(true);
 
@@ -23,7 +33,20 @@ function AdminLogPage() {
         params: {
           page,
           size: 10,
+
+          adminKeyword: searchCondition.adminKeyword || null,
+
+          targetType: searchCondition.targetType || null,
+
+          action: searchCondition.action || null,
+
+          targetId: searchCondition.targetId || null,
+
+          startDate: searchCondition.startDate || null,
+
+          endDate: searchCondition.endDate || null,
         },
+
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -32,7 +55,9 @@ function AdminLogPage() {
       setLogs(res.data.content);
       setTotalPages(res.data.totalPages);
     } catch (err) {
-      toast.error("로그 조회 실패");
+      console.error(err);
+
+      toast.error(err.response?.data?.message ?? "로그 조회 실패");
     } finally {
       setLoading(false);
     }
@@ -42,7 +67,40 @@ function AdminLogPage() {
     fetchLogs();
   }, [page]);
 
+  // 검색
+  const handleSearch = () => {
+    if (page !== 0) {
+      setPage(0);
+    } else {
+      fetchLogs();
+    }
+  };
+
+  // 검색 조건 초기화
+  const handleReset = () => {
+    const resetCondition = {
+      adminKeyword: "",
+      targetType: "",
+      action: "",
+      targetId: "",
+      startDate: "",
+      endDate: "",
+    };
+
+    setCondition(resetCondition);
+
+    if (page !== 0) {
+      setPage(0);
+    } else {
+      fetchLogs(resetCondition);
+    }
+  };
+
   const formatDate = (date) => {
+    if (!date) {
+      return "";
+    }
+
     return new Date(date).toLocaleString("ko-KR");
   };
 
@@ -55,8 +113,107 @@ function AdminLogPage() {
     >
       <h1>관리자 로그</h1>
 
+      {/* 검색 영역 */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "10px",
+          marginBottom: "20px",
+          alignItems: "center",
+        }}
+      >
+        {/* 관리자 */}
+        <input
+          type="text"
+          placeholder="관리자 닉네임 / ID"
+          value={condition.adminKeyword}
+          onChange={(e) =>
+            setCondition({
+              ...condition,
+              adminKeyword: e.target.value,
+            })
+          }
+        />
+
+        {/* 대상 타입 */}
+        <select
+          value={condition.targetType}
+          onChange={(e) =>
+            setCondition({
+              ...condition,
+              targetType: e.target.value,
+            })
+          }
+        >
+          <option value="">전체 대상</option>
+          <option value="USER">회원</option>
+          <option value="STORE">가게</option>
+          <option value="ORDER">주문</option>
+        </select>
+
+        {/* 작업 */}
+        <select
+          value={condition.action}
+          onChange={(e) =>
+            setCondition({
+              ...condition,
+              action: e.target.value,
+            })
+          }
+        >
+          <option value="">전체 작업</option>
+          <option value="USER_STATUS_CHANGED">회원 상태 변경</option>
+          <option value="STORE_STATUS_CHANGED">가게 상태 변경</option>
+        </select>
+
+        {/* 대상 ID */}
+        <input
+          type="number"
+          placeholder="대상 ID"
+          value={condition.targetId}
+          onChange={(e) =>
+            setCondition({
+              ...condition,
+              targetId: e.target.value,
+            })
+          }
+        />
+
+        {/* 시작일 */}
+        <input
+          type="date"
+          value={condition.startDate}
+          onChange={(e) =>
+            setCondition({
+              ...condition,
+              startDate: e.target.value,
+            })
+          }
+        />
+
+        <span>~</span>
+
+        {/* 종료일 */}
+        <input
+          type="date"
+          value={condition.endDate}
+          onChange={(e) =>
+            setCondition({
+              ...condition,
+              endDate: e.target.value,
+            })
+          }
+        />
+
+        <button onClick={handleSearch}>검색</button>
+
+        <button onClick={handleReset}>초기화</button>
+      </div>
+
       {loading && <p>불러오는 중...</p>}
 
+      {/* 로그 테이블 */}
       <table
         style={{
           width: "100%",
@@ -77,30 +234,45 @@ function AdminLogPage() {
         </thead>
 
         <tbody>
-          {logs.map((log) => (
-            <tr key={log.id}>
-              <td>{log.id}</td>
-
-              <td>{log.admin}</td>
-
-              <td>{log.targetType}</td>
-
-              <td>{log.targetId}</td>
-
-              <td>{log.action}</td>
-
-              <td>{log.description}</td>
-
-              <td>
-                {log.beforeValue} → {log.afterValue}
+          {logs.length === 0 ? (
+            <tr>
+              <td
+                colSpan="8"
+                style={{
+                  textAlign: "center",
+                  padding: "30px",
+                }}
+              >
+                조회된 로그가 없습니다.
               </td>
-
-              <td>{formatDate(log.createdAt)}</td>
             </tr>
-          ))}
+          ) : (
+            logs.map((log) => (
+              <tr key={log.id}>
+                <td>{log.id}</td>
+
+                <td>{log.admin}</td>
+
+                <td>{log.targetType}</td>
+
+                <td>{log.targetId}</td>
+
+                <td>{log.action}</td>
+
+                <td>{log.description}</td>
+
+                <td>
+                  {log.beforeValue} → {log.afterValue}
+                </td>
+
+                <td>{formatDate(log.createdAt)}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
 
+      {/* 페이징 */}
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
