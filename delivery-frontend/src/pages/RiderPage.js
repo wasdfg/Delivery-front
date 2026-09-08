@@ -5,6 +5,7 @@ import SockJS from "sockjs-client";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "react-toastify";
 import "./OrderHistoryPage.css";
+import ReportButton from "../components/ReportButton";
 
 function RiderPage() {
   const { token } = useAuth();
@@ -84,7 +85,7 @@ function RiderPage() {
       (delivery) =>
         delivery.status === "ASSIGNED" ||
         delivery.status === "PICKED_UP" ||
-        delivery.status === "DELIVERING"
+        delivery.status === "DELIVERING",
     );
 
     if (!activeDelivery) return;
@@ -121,7 +122,7 @@ function RiderPage() {
           enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 0,
-        }
+        },
       );
     };
 
@@ -142,7 +143,7 @@ function RiderPage() {
       await axios.patch(
         `http://localhost:8080/api/deliveries/${deliveryId}/assign`,
         null,
-        authHeader
+        authHeader,
       );
 
       toast.success("배달을 성공적으로 수락했습니다.");
@@ -151,7 +152,7 @@ function RiderPage() {
       console.error(error);
       toast.error(
         error.response?.data?.message ||
-          "이미 다른 라이더가 접수한 주문입니다."
+          "이미 다른 라이더가 접수한 주문입니다.",
       );
     }
   };
@@ -161,8 +162,8 @@ function RiderPage() {
       newStatus === "PICKED_UP"
         ? "픽업 완료"
         : newStatus === "DELIVERED"
-        ? "배달 완료"
-        : "상태 변경";
+          ? "배달 완료"
+          : "상태 변경";
 
     const confirmed = window.confirm(`${statusText} 처리하시겠습니까?`);
     if (!confirmed) return;
@@ -171,7 +172,7 @@ function RiderPage() {
       await axios.patch(
         `http://localhost:8080/api/deliveries/${deliveryId}/status`,
         { status: newStatus },
-        authHeader
+        authHeader,
       );
 
       toast.success(`${statusText} 처리되었습니다.`);
@@ -196,6 +197,8 @@ function RiderPage() {
       }}
     >
       <h1>🛵 라이더 전용 페이지</h1>
+
+      <ReportButton targetType="RIDER" targetId={rider.id} />
 
       <section style={sectionStyle}>
         <h2 style={{ color: "#e64980" }}>

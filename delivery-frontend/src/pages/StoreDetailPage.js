@@ -5,6 +5,7 @@ import MenuCard from "../components/MenuCard";
 import ReviewCard from "../components/ReviewCard";
 import ProductOptionModal from "../components/ProductOptionModal";
 import { toast } from "react-toastify";
+import ReportButton from "../components/ReportButton";
 
 function StoreDetailPage() {
   const { storeId } = useParams();
@@ -36,8 +37,8 @@ function StoreDetailPage() {
             `http://localhost:8080/api/stores/${storeId}/blacklist/check`,
             {
               headers: { Authorization: `Bearer ${token}` },
-            }
-          )
+            },
+          ),
         );
       }
 
@@ -94,7 +95,7 @@ function StoreDetailPage() {
       // 2. "DIFFERENT_STORE" 에러를 받았을 때의 처리
       if (errorMessage === "DIFFERENT_STORE") {
         const wantToClear = window.confirm(
-          "장바구니에는 같은 가게의 메뉴만 담을 수 있습니다.\n기존 장바구니를 비우고 새로 담으시겠습니까?"
+          "장바구니에는 같은 가게의 메뉴만 담을 수 있습니다.\n기존 장바구니를 비우고 새로 담으시겠습니까?",
         );
 
         if (wantToClear) {
@@ -129,7 +130,7 @@ function StoreDetailPage() {
       await axios.patch(
         `http://localhost:8080/api/stores/${storeId}/status`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       toast.success("가게 상태가 업데이트되었습니다.");
       fetchData();
@@ -153,6 +154,8 @@ function StoreDetailPage() {
         </div>
       )}
 
+      <ReportButton targetType="STORE" targetId={store.id} />
+
       {/* 1. 상단 정보 섹션 */}
       <section className="store-header" style={{ marginBottom: "40px" }}>
         <div
@@ -170,14 +173,14 @@ function StoreDetailPage() {
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
               <span
                 style={statusBadgeStyle(
-                  store.currentlyOrderable && !isBlacklisted
+                  store.currentlyOrderable && !isBlacklisted,
                 )}
               >
                 {isBlacklisted
                   ? "● 주문 제한"
                   : store.currentlyOrderable
-                  ? "● 영업 중"
-                  : "● 준비 중"}
+                    ? "● 영업 중"
+                    : "● 준비 중"}
               </span>
               <span style={{ color: "#fab005", fontWeight: "bold" }}>
                 {" "}

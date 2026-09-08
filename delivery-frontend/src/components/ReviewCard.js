@@ -1,6 +1,8 @@
 import React from "react";
 import "./ReviewCard.css";
 
+import ReportButton from "./ReportButton";
+
 function ReviewCard({ review }) {
   // ✅ 백엔드 DTO(userNickname)와 이름을 맞춥니다.
   const {
@@ -22,6 +24,8 @@ function ReviewCard({ review }) {
         <span className="review-author">{userNickname || "익명 사용자"}</span>
         <span className="review-date">{formattedDate}</span>
       </div>
+
+      <ReportButton targetType="REVIEW" targetId={review.id} />
 
       {/* 주문 상품 및 옵션 정보 */}
       {orderedProductNames && orderedProductNames.length > 0 && (
