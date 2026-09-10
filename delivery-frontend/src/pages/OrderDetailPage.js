@@ -4,6 +4,7 @@ import axios from "axios";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { toast } from "react-toastify";
+import ReportButton from "../components/ReportButton";
 
 function OrderDetailPage() {
   const { orderId } = useParams();
@@ -23,7 +24,7 @@ function OrderDetailPage() {
           `http://localhost:8080/api/orders/${orderId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
         );
 
         setOrder(response.data);
@@ -97,6 +98,8 @@ function OrderDetailPage() {
         borderRadius: "12px",
       }}
     >
+      <ReportButton targetType="ORDER" targetId={order.id} />
+
       <h2 style={{ borderBottom: "2px solid #333", paddingBottom: "10px" }}>
         주문 상세 내역
       </h2>
