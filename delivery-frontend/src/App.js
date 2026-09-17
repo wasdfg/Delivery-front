@@ -40,6 +40,11 @@ import AdminUserDetailPage from "./pages/AdminUserDetailPage";
 import AdminStoreDetailPage from "./pages/AdminStoreDetailPage";
 import AdminReportPage from "./pages/AdminReportPage";
 import AdminReportDetailPage from "./pages/AdminReportDetailPage";
+import AdminNoticePage from "./pages/AdminNoticePage";
+import AdminNoticeDetailPage from "./pages/AdminNoticeDetailPage";
+import NoticeCreatePage from "./pages/NoticeCreatePage";
+import NoticePage from "./pages/NoticePage";
+import NoticeDetailPage from "./pages/NoticeDetailPage";
 
 const EventSource = EventSourcePolyfill || NativeEventSource;
 
@@ -280,6 +285,22 @@ function App() {
               path="/admin/reports/:reportId"
               element={<AdminReportDetailPage />}
             />
+
+            <Route path="/admin/notices" element={<AdminNoticePage />} />
+
+            <Route
+              path="/admin/notices/create"
+              element={<NoticeCreatePage />}
+            />
+
+            <Route
+              path="/admin/notices/:noticeId"
+              element={<AdminNoticeDetailPage />}
+            />
+
+            <Route path="/notices" element={<NoticePage />} />
+
+            <Route path="/notices/:noticeId" element={<NoticeDetailPage />} />
           </Route>
         </Routes>
       </main>
