@@ -9,6 +9,10 @@ function AdminReportDetailPage() {
   const [report, setReport] = useState(null);
   const [comment, setComment] = useState("");
 
+  // 회원 정지 후속 조치
+  const [suspendUser, setSuspendUser] = useState(false);
+  const [suspensionDays, setSuspensionDays] = useState("");
+
   const getReport = async () => {
     try {
       const response = await axios.get(`/api/admin/reports/${reportId}`);
@@ -42,19 +46,42 @@ function AdminReportDetailPage() {
   };
 
   const handleResolve = async () => {
+    // 처리 내용 확인
     if (!comment.trim()) {
       alert("처리 내용을 입력해주세요.");
       return;
     }
 
-    try {
-      await axios.patch(`/api/admin/reports/${reportId}/resolve`, {
-        comment,
-      });
+    // 회원 정지 기간 검증
+    if (suspendUser) {
+      if (suspensionDays !== "" && Number(suspensionDays) < 1) {
+        alert("정지 기간은 1일 이상이어야 합니다.");
+        return;
+      }
+    }
 
-      alert("신고 처리가 완료되었습니다.");
+    try {
+      const payload = {
+        comment,
+        suspendUser,
+        suspensionDays: suspensionDays === "" ? null : Number(suspensionDays),
+      };
+
+      await axios.patch(`/api/admin/reports/${reportId}/resolve`, payload);
+
+      if (suspendUser) {
+        if (suspensionDays === "") {
+          alert("신고 처리 및 회원 영구 정지가 완료되었습니다.");
+        } else {
+          alert(`신고 처리 및 회원 ${suspensionDays}일 정지가 완료되었습니다.`);
+        }
+      } else {
+        alert("신고 처리가 완료되었습니다.");
+      }
 
       setComment("");
+      setSuspendUser(false);
+      setSuspensionDays("");
 
       await getReport();
     } catch (error) {
@@ -78,6 +105,8 @@ function AdminReportDetailPage() {
       alert("신고를 반려했습니다.");
 
       setComment("");
+      setSuspendUser(false);
+      setSuspensionDays("");
 
       await getReport();
     } catch (error) {
@@ -170,12 +199,46 @@ function AdminReportDetailPage() {
       {/* 처리 / 반려 */}
       {report.status === "IN_PROGRESS" && (
         <div>
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="처리 내용 또는 반려 사유를 입력해주세요."
-            rows={6}
-          />
+          <div>
+            <label>처리 내용</label>
+
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="처리 내용 또는 반려 사유를 입력해주세요."
+              rows={6}
+            />
+          </div>
+
+          {/* 회원 신고인 경우에만 정지 옵션 표시 */}
+          {report.targetType === "USER" && (
+            <div>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={suspendUser}
+                  onChange={(e) => setSuspendUser(e.target.checked)}
+                />
+                회원 정지 후 처리
+              </label>
+
+              {suspendUser && (
+                <div>
+                  <label>정지 기간</label>
+
+                  <input
+                    type="number"
+                    min="1"
+                    value={suspensionDays}
+                    onChange={(e) => setSuspensionDays(e.target.value)}
+                    placeholder="정지 일수"
+                  />
+
+                  <span>비워두면 영구 정지</span>
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <button type="button" onClick={handleResolve}>

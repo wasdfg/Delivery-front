@@ -6,7 +6,6 @@ import { toast } from "react-toastify";
 
 function AdminUserDetailPage() {
   const { userId } = useParams();
-
   const { token } = useAuth();
 
   const [user, setUser] = useState(null);
@@ -23,14 +22,35 @@ function AdminUserDetailPage() {
       );
 
       setUser(res.data);
-    } catch {
+    } catch (error) {
+      console.error(error);
       toast.error("회원 조회 실패");
     }
   };
 
   useEffect(() => {
     fetchUser();
-  }, []);
+  }, [userId, token]);
+
+  const getSuspensionText = () => {
+    if (user.status !== "SUSPENDED") {
+      return "-";
+    }
+
+    if (!user.suspendedUntil) {
+      return "영구 정지";
+    }
+
+    return new Date(user.suspendedUntil).toLocaleString("ko-KR");
+  };
+
+  const getSuspensionType = () => {
+    if (user.status !== "SUSPENDED") {
+      return "-";
+    }
+
+    return user.suspendedUntil ? "기간 정지" : "영구 정지";
+  };
 
   if (!user) {
     return <div>불러오는 중...</div>;
@@ -73,9 +93,26 @@ function AdminUserDetailPage() {
           </tr>
 
           <tr>
+            <th>정지 유형</th>
+            <td>{getSuspensionType()}</td>
+          </tr>
+
+          <tr>
+            <th>정지 종료일</th>
+            <td>{getSuspensionText()}</td>
+          </tr>
+
+          <tr>
             <th>가입일</th>
             <td>{user.createdAt}</td>
           </tr>
+
+          {user.withdrawnAt && (
+            <tr>
+              <th>탈퇴일</th>
+              <td>{user.withdrawnAt}</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
