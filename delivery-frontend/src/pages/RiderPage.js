@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "react-toastify";
 import "./OrderHistoryPage.css";
@@ -13,9 +11,6 @@ function RiderPage() {
   const [availableDeliveries, setAvailableDeliveries] = useState([]);
   const [myDeliveries, setMyDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // STOMP client 유지용
-  const stompClientRef = useRef(null);
 
   const authHeader = {
     headers: {
@@ -34,7 +29,6 @@ function RiderPage() {
         axios.get("http://localhost:8080/api/deliveries/my", authHeader),
       ]);
 
-      // Page 응답 대응
       setAvailableDeliveries(availableRes.data.content || []);
       setMyDeliveries(myRes.data.content || []);
     } catch (error) {
@@ -49,46 +43,33 @@ function RiderPage() {
     fetchData();
 
     const interval = setInterval(fetchData, 30000);
+
     return () => clearInterval(interval);
   }, [token]);
 
   /**
-   * WebSocket 연결
-   */
-  useEffect(() => {
-    const client = new Client({
-      webSocketFactory: () => new SockJS("http://localhost:8080/ws"),
-      reconnectDelay: 5000,
-      debug: () => {},
-    });
-
-    client.onConnect = () => {
-      console.log("라이더 WebSocket 연결 완료");
-    };
-
-    client.activate();
-    stompClientRef.current = client;
-
-    return () => {
-      client.deactivate();
-    };
-  }, []);
-
-  /**
    * 배달 중일 때 자동 위치 전송
-   * ASSIGNED / PICKED_UP 상태일 때만 전송
+   *
+   * PICKED_UP / DELIVERING 상태일 때만 전송
    */
   useEffect(() => {
-    if (!myDeliveries.length) return;
+    if (!token || !myDeliveries.length) {
+      return;
+    }
 
     const activeDelivery = myDeliveries.find(
       (delivery) =>
-        delivery.status === "ASSIGNED" ||
-        delivery.status === "PICKED_UP" ||
-        delivery.status === "DELIVERING",
+        delivery.status === "PICKED_UP" || delivery.status === "DELIVERING",
     );
 
-    if (!activeDelivery) return;
+    if (!activeDelivery) {
+      return;
+    }
+
+    if (!activeDelivery.orderId) {
+      console.error("위치 전송에 필요한 orderId가 없습니다.", activeDelivery);
+      return;
+    }
 
     const sendLocation = () => {
       if (!navigator.geolocation) {
@@ -97,26 +78,27 @@ function RiderPage() {
       }
 
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const payload = {
             orderId: activeDelivery.orderId,
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           };
 
-          const client = stompClientRef.current;
+          try {
+            await axios.post(
+              "http://localhost:8080/api/riders/location",
+              payload,
+              authHeader,
+            );
 
-          if (client && client.connected) {
-            client.publish({
-              destination: "/app/rider/location",
-              body: JSON.stringify(payload),
-            });
-
-            console.log("위치 전송 완료", payload);
+            console.log("라이더 위치 전송 완료", payload);
+          } catch (error) {
+            console.error("라이더 위치 전송 실패:", error);
           }
         },
         (error) => {
-          console.log("위치 조회 실패", error);
+          console.error("현재 위치를 가져오지 못했습니다.", error);
         },
         {
           enableHighAccuracy: true,
@@ -129,14 +111,17 @@ function RiderPage() {
     // 최초 1회 즉시 전송
     sendLocation();
 
-    // 10초마다 자동 전송
+    // 10초마다 위치 전송
     const locationInterval = setInterval(sendLocation, 10000);
 
-    return () => clearInterval(locationInterval);
-  }, [myDeliveries]);
+    return () => {
+      clearInterval(locationInterval);
+    };
+  }, [myDeliveries, token]);
 
   const handleAccept = async (deliveryId) => {
     const confirmed = window.confirm("이 배달을 수락하시겠습니까?");
+
     if (!confirmed) return;
 
     try {
@@ -147,9 +132,11 @@ function RiderPage() {
       );
 
       toast.success("배달을 성공적으로 수락했습니다.");
+
       fetchData();
     } catch (error) {
       console.error(error);
+
       toast.error(
         error.response?.data?.message ||
           "이미 다른 라이더가 접수한 주문입니다.",
@@ -166,19 +153,24 @@ function RiderPage() {
           : "상태 변경";
 
     const confirmed = window.confirm(`${statusText} 처리하시겠습니까?`);
+
     if (!confirmed) return;
 
     try {
       await axios.patch(
         `http://localhost:8080/api/deliveries/${deliveryId}/status`,
-        { status: newStatus },
+        {
+          status: newStatus,
+        },
         authHeader,
       );
 
       toast.success(`${statusText} 처리되었습니다.`);
+
       fetchData();
     } catch (error) {
       console.error(error);
+
       toast.error(error.response?.data?.message || "상태 변경에 실패했습니다.");
     }
   };
@@ -198,7 +190,11 @@ function RiderPage() {
     >
       <h1>🛵 라이더 전용 페이지</h1>
 
-      <ReportButton targetType="RIDER" targetId={rider.id} />
+      {/* 
+        현재 rider 객체가 이 페이지에 별도로 조회되지 않기 때문에
+        기존 ReportButton의 targetId={rider.id}는 사용할 수 없습니다.
+        라이더 신고 기능은 riderId를 확보한 뒤 연결하는 것이 맞습니다.
+      */}
 
       <section style={sectionStyle}>
         <h2 style={{ color: "#e64980" }}>
@@ -216,6 +212,7 @@ function RiderPage() {
             >
               <div className="order-header">
                 <strong>{delivery.storeName || "가게 정보 없음"}</strong>
+
                 <span className={`status-badge ${delivery.status}`}>
                   {delivery.status}
                 </span>
@@ -223,7 +220,9 @@ function RiderPage() {
 
               <div className="order-body" style={{ marginTop: "10px" }}>
                 <p>📍 주소: {delivery.receiverAddress}</p>
+
                 <p>📞 연락처: {delivery.receiverPhone || "정보 없음"}</p>
+
                 <p>📦 요청사항: {delivery.itemDescription || "없음"}</p>
               </div>
 
@@ -251,7 +250,12 @@ function RiderPage() {
         )}
       </section>
 
-      <section style={{ ...sectionStyle, marginTop: "40px" }}>
+      <section
+        style={{
+          ...sectionStyle,
+          marginTop: "40px",
+        }}
+      >
         <h2 style={{ color: "#228be6" }}>🆕 배차 대기 목록</h2>
 
         {availableDeliveries.length === 0 ? (
@@ -272,7 +276,13 @@ function RiderPage() {
               >
                 <div>
                   <strong>{delivery.storeName || "가게 정보 없음"}</strong>
-                  <p style={{ marginTop: "6px", color: "#666" }}>
+
+                  <p
+                    style={{
+                      marginTop: "6px",
+                      color: "#666",
+                    }}
+                  >
                     📍 {delivery.receiverAddress}
                   </p>
                 </div>
@@ -291,5 +301,23 @@ function RiderPage() {
     </div>
   );
 }
+
+const sectionStyle = {
+  marginBottom: "30px",
+};
+
+const emptyTextStyle = {
+  color: "#888",
+  textAlign: "center",
+  padding: "30px",
+};
+
+const activeCardStyle = {
+  marginBottom: "15px",
+};
+
+const waitingCardStyle = {
+  marginBottom: "15px",
+};
 
 export default RiderPage;

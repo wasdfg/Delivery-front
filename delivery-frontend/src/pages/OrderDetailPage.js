@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
 import { toast } from "react-toastify";
 import ReportButton from "../components/ReportButton";
 
@@ -14,21 +12,31 @@ function OrderDetailPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 실시간 라이더 위치
+  // 현재 라이더 위치
   const [riderLocation, setRiderLocation] = useState(null);
 
+  // 라이더 위치 조회 중인지 여부
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  /*
+   * 주문 상세 조회
+   */
   useEffect(() => {
     const fetchOrderDetail = async () => {
       try {
         const response = await axios.get(
           `http://localhost:8080/api/orders/${orderId}`,
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
         );
 
         setOrder(response.data);
       } catch (error) {
+        console.error(error);
+
         toast.error("주문 상세 정보를 불러오지 못했습니다.");
         navigate("/orders");
       } finally {
@@ -39,38 +47,84 @@ function OrderDetailPage() {
     fetchOrderDetail();
   }, [orderId, token, navigate]);
 
-  /**
-   * WebSocket 연결
-   * /topic/order/{orderId} 구독
+  /*
+   * 현재 라이더 위치 조회
+   *
+   * PICKED_UP / DELIVERING 상태일 때만 호출
    */
   useEffect(() => {
-    if (!orderId) return;
+    if (!order) {
+      return;
+    }
 
-    const client = new Client({
-      webSocketFactory: () => new SockJS("http://localhost:8080/ws"),
-      reconnectDelay: 5000,
-      debug: () => {},
-      onConnect: () => {
-        client.subscribe(`/topic/order/${orderId}`, (message) => {
-          const body = JSON.parse(message.body);
+    if (order.status !== "PICKED_UP" && order.status !== "DELIVERING") {
+      setRiderLocation(null);
+      return;
+    }
 
+    // 배송 ID가 어떤 형태로 내려와도 대응
+    const deliveryId = order.deliveryId || order.delivery?.id;
+
+    if (!deliveryId) {
+      setRiderLocation(null);
+      return;
+    }
+
+    let intervalId = null;
+    let cancelled = false;
+
+    const fetchRiderLocation = async () => {
+      try {
+        setLocationLoading(true);
+
+        const response = await axios.get(
+          `http://localhost:8080/api/deliveries/${deliveryId}/location`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (!cancelled) {
           setRiderLocation({
-            latitude: body.latitude,
-            longitude: body.longitude,
+            latitude: response.data.latitude,
+            longitude: response.data.longitude,
           });
-        });
-      },
-      onStompError: () => {
-        toast.error("실시간 배송 추적 연결에 실패했습니다.");
-      },
-    });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("라이더 위치 조회 실패:", error);
 
-    client.activate();
+          /*
+           * 위치가 아직 없거나 조회할 수 없는 상태라면
+           * 기존 위치를 유지하지 않고 다시 조회할 수 있도록 처리
+           */
+          setRiderLocation(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLocationLoading(false);
+        }
+      }
+    };
+
+    // 최초 1회 바로 조회
+    fetchRiderLocation();
+
+    // 3초마다 조회
+    intervalId = setInterval(() => {
+      fetchRiderLocation();
+    }, 3000);
 
     return () => {
-      client.deactivate();
+      cancelled = true;
+
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
-  }, [orderId]);
+  }, [order, token]);
 
   if (loading) {
     return (
@@ -88,6 +142,9 @@ function OrderDetailPage() {
     );
   }
 
+  const isTracking =
+    order.status === "PICKED_UP" || order.status === "DELIVERING";
+
   return (
     <div
       style={{
@@ -100,20 +157,33 @@ function OrderDetailPage() {
     >
       <ReportButton targetType="ORDER" targetId={order.id} />
 
-      <h2 style={{ borderBottom: "2px solid #333", paddingBottom: "10px" }}>
+      <h2
+        style={{
+          borderBottom: "2px solid #333",
+          paddingBottom: "10px",
+        }}
+      >
         주문 상세 내역
       </h2>
 
       {/* 주문 기본 정보 */}
       <section style={sectionStyle}>
         <h3>{order.storeName}</h3>
+
         <p style={{ color: "#888" }}>
           주문 일시: {new Date(order.orderDate).toLocaleString()}
         </p>
+
         <p>주문 번호: {order.id}</p>
+
         <p>
           주문 상태 :
-          <span style={{ color: "#339af0", fontWeight: "bold" }}>
+          <span
+            style={{
+              color: "#339af0",
+              fontWeight: "bold",
+            }}
+          >
             {order.status}
           </span>
         </p>
@@ -130,27 +200,29 @@ function OrderDetailPage() {
       >
         <h3>🚚 실시간 배송 추적</h3>
 
-        {!riderLocation ? (
+        {!isTracking ? (
           <p style={{ color: "#666" }}>
-            아직 라이더가 배차되지 않았거나 위치 정보가 없습니다.
+            현재 배송 추적이 가능한 상태가 아닙니다.
           </p>
+        ) : locationLoading && !riderLocation ? (
+          <p style={{ color: "#666" }}>라이더 위치를 확인하는 중입니다...</p>
+        ) : !riderLocation ? (
+          <p style={{ color: "#666" }}>아직 라이더 위치 정보가 없습니다.</p>
         ) : (
           <>
-            <p>현재 라이더 위치가 실시간으로 업데이트되고 있습니다.</p>
+            <p>현재 라이더 위치를 주기적으로 확인하고 있습니다.</p>
 
             <div style={locationBoxStyle}>
               <p>
                 위도 : <strong>{riderLocation.latitude}</strong>
               </p>
+
               <p>
                 경도 : <strong>{riderLocation.longitude}</strong>
               </p>
             </div>
 
-            {/*
-              이후 단계
-              카카오맵 / 네이버맵 지도 삽입 위치
-            */}
+            {/* 이후 지도 API 연결 */}
             <div style={mapPlaceholderStyle}>
               지도 영역 (Kakao Map 연결 예정)
             </div>
@@ -177,15 +249,27 @@ function OrderDetailPage() {
           <span>+{order.deliveryFee?.toLocaleString()}원</span>
         </div>
 
-        <div style={{ ...rowStyle, color: "#e74c3c" }}>
+        <div
+          style={{
+            ...rowStyle,
+            color: "#e74c3c",
+          }}
+        >
           <span>할인 금액</span>
           <span>-{order.discountAmount?.toLocaleString()}원</span>
         </div>
 
         <hr />
 
-        <div style={{ ...rowStyle, fontSize: "1.2rem", fontWeight: "bold" }}>
+        <div
+          style={{
+            ...rowStyle,
+            fontSize: "1.2rem",
+            fontWeight: "bold",
+          }}
+        >
           <span>총 결제금액</span>
+
           <span style={{ color: "#339af0" }}>
             {order.totalPrice?.toLocaleString()}원
           </span>
