@@ -183,6 +183,10 @@ function MyPage() {
         {favoriteStores.length === 0 && <p>찜한 가게가 없습니다.</p>}
       </div>
 
+      <button type="button" onClick={() => navigate("/delivery-addresses")}>
+        배송 주소 관리
+      </button>
+
       {user?.role === "ADMIN" && (
         <button className="action-btn" onClick={() => navigate("/admin")}>
           ⚙️ 관리자 페이지

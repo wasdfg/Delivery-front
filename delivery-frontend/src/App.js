@@ -45,6 +45,7 @@ import AdminNoticeDetailPage from "./pages/AdminNoticeDetailPage";
 import NoticeCreatePage from "./pages/NoticeCreatePage";
 import NoticePage from "./pages/NoticePage";
 import NoticeDetailPage from "./pages/NoticeDetailPage";
+import DeliveryAddressPage from "./pages/DeliveryAddressPage";
 
 const EventSource = EventSourcePolyfill || NativeEventSource;
 
@@ -301,6 +302,11 @@ function App() {
             <Route path="/notices" element={<NoticePage />} />
 
             <Route path="/notices/:noticeId" element={<NoticeDetailPage />} />
+
+            <Route
+              path="/delivery-addresses"
+              element={<DeliveryAddressPage />}
+            />
           </Route>
         </Routes>
       </main>
