@@ -114,3 +114,67 @@
 .status-btn:hover {
   opacity: 0.9;
 }
+/* 결제 정보 */
+.payment-info {
+  margin-top: 15px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.payment-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 6px 0;
+  font-size: 0.9rem;
+}
+
+.payment-status {
+  font-weight: bold;
+}
+
+.payment-ready {
+  color: #e67700;
+}
+
+.payment-approved {
+  color: #2b8a3e;
+}
+
+.payment-failed {
+  color: #e03131;
+}
+
+.payment-canceled {
+  color: #868e96;
+}
+
+.payment-refunded {
+  color: #7048e8;
+}
+
+/* 재결제 버튼 */
+.retry-payment-btn {
+  background-color: #339af0;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.retry-payment-btn:hover {
+  background-color: #228be6;
+}
+
+.retry-payment-btn:disabled {
+  background-color: #adb5bd;
+  cursor: not-allowed;
+}
+
+/* 취소 버튼 */
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
