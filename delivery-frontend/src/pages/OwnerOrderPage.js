@@ -1,246 +1,490 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import SockJS from "sockjs-client";
 import Stomp from "stompjs";
 import { toast } from "react-toastify";
+
 import "./OrderHistoryPage.css";
+
+const API = "http://localhost:8080/api";
+
+// 주문 상태
+const ORDER_STATUS_MAP = {
+  PENDING: "결제 대기",
+  ACCEPTED: "주문 접수",
+  DELIVERING: "배달 중",
+  COMPLETED: "배달 완료",
+  CANCELED: "주문 취소",
+};
+
+// 결제 상태
+const PAYMENT_STATUS_MAP = {
+  READY: "결제 대기",
+  APPROVED: "결제 완료",
+  FAILED: "결제 실패",
+  CANCELED: "결제 시도 취소",
+  REFUNDED: "환불 완료",
+};
+
+// 결제 수단
+const PAYMENT_METHOD_MAP = {
+  CARD: "카드",
+  TRANSFER: "계좌이체",
+  VIRTUAL_ACCOUNT: "가상계좌",
+};
 
 function OwnerOrderPage() {
   const { storeId } = useParams();
   const { token } = useAuth();
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [processingOrderId, setProcessingOrderId] = useState(null);
 
   const stompClient = useRef(null);
 
-  const fetchStoreOrders = async () => {
-    try {
-      const response = await axios.get(
-        `http://localhost:8080/api/stores/${storeId}/orders`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setOrders(response.data.sort((a, b) => b.id - a.id));
-    } catch (error) {
-      console.error("로딩 실패", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 1. 가게 주문 조회
+  const fetchStoreOrders = useCallback(
+    async (showLoading = true) => {
+      if (!token || !storeId) return;
 
+      try {
+        if (showLoading) {
+          setLoading(true);
+        }
+
+        const response = await axios.get(`${API}/stores/${storeId}/orders`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Page 응답과 배열 응답 모두 처리
+        const orderData = Array.isArray(response.data)
+          ? response.data
+          : response.data?.content || [];
+
+        // 최신 주문이 먼저 보이도록 정렬
+        const sortedOrders = [...orderData].sort((a, b) => {
+          const dateA = new Date(a.requestedAt || a.createdAt || 0).getTime();
+
+          const dateB = new Date(b.requestedAt || b.createdAt || 0).getTime();
+
+          return dateB - dateA || (b.orderId || b.id) - (a.orderId || a.id);
+        });
+
+        setOrders(sortedOrders);
+      } catch (error) {
+        console.error("가게 주문 조회 실패:", error);
+
+        if (showLoading) {
+          toast.error(
+            error.response?.data?.message || "주문 목록을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (showLoading) {
+          setLoading(false);
+        }
+      }
+    },
+    [storeId, token],
+  );
+
+  // 2. 웹소켓 연결 및 신규 주문 알림
   useEffect(() => {
+    if (!token || !storeId) return;
+
     fetchStoreOrders();
 
     const socket = new SockJS("http://localhost:8080/ws");
-    stompClient.current = Stomp.over(socket);
-    stompClient.current.debug = null;
 
-    stompClient.current.connect(
+    const client = Stomp.over(socket);
+
+    stompClient.current = client;
+    client.debug = null;
+
+    client.connect(
       {},
       () => {
-        console.log(`📡 연결 성공: 가게 ${storeId}`);
+        console.log(`가게 ${storeId} 웹소켓 연결 성공`);
 
-        stompClient.current.subscribe(`/topic/store/${storeId}`, (message) => {
-          const event = JSON.parse(message.body);
+        client.subscribe(`/topic/store/${storeId}`, (message) => {
+          try {
+            const event = JSON.parse(message.body);
 
-          const audio = new Audio("/sounds/notification.mp3");
-          audio.play().catch(() => {});
+            // 새 주문 알림
+            if (event.type === "ORDER_CREATED") {
+              const audio = new Audio("/sounds/notification.mp3");
 
-          if (event.type === "ORDER_CREATED") {
-            toast.info(`🔔 새 주문 #${event.orderId} 접수!`, {
-              position: "top-right",
-            });
-            fetchStoreOrders();
-          } else if (event.type === "REVIEW_CREATED") {
-            toast.success(`⭐ 새 리뷰가 등록되었습니다!`);
+              audio.play().catch(() => {});
+
+              toast.info(`새 주문 #${event.orderId}이 접수되었습니다.`, {
+                position: "top-right",
+              });
+
+              fetchStoreOrders(false);
+            }
+
+            // 새 리뷰 알림
+            else if (event.type === "REVIEW_CREATED") {
+              toast.success("새 리뷰가 등록되었습니다!");
+            }
+
+            // 주문 취소 이벤트가 발행되는 경우
+            else if (event.type === "ORDER_CANCELED") {
+              toast.info(`주문 #${event.orderId}이 취소되었습니다.`);
+
+              fetchStoreOrders(false);
+            }
+          } catch (error) {
+            console.error("웹소켓 메시지 처리 실패:", error);
           }
         });
       },
       (error) => {
         console.error("웹소켓 연결 에러:", error);
-      }
+      },
     );
 
     return () => {
-      if (stompClient.current) {
-        stompClient.current.disconnect();
-        console.log("📡 웹소켓 연결 해제");
+      if (stompClient.current === client) {
+        if (client.connected) {
+          client.disconnect();
+        } else {
+          socket.close();
+        }
+
+        stompClient.current = null;
       }
     };
-  }, [storeId, token]);
+  }, [storeId, token, fetchStoreOrders]);
 
+  // 3. 주문 상태 변경
   const handleStatusChange = async (orderId, newStatus) => {
+    if (processingOrderId !== null) return;
+
+    setProcessingOrderId(orderId);
+
     try {
       await axios.patch(
-        `http://localhost:8080/api/orders/${orderId}/status`,
-        { status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${API}/orders/${orderId}/status`,
+        {
+          status: newStatus,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
-      toast.success(`주문 상태가 [${newStatus}]로 변경되었습니다.`);
-      fetchStoreOrders();
+
+      toast.success(
+        `주문 상태가 [${ORDER_STATUS_MAP[newStatus] || newStatus}]로 변경되었습니다.`,
+      );
+
+      await fetchStoreOrders(false);
     } catch (error) {
-      toast.error("상태 변경 실패");
+      console.error("주문 상태 변경 실패:", error);
+
+      toast.error(
+        error.response?.data?.message || "주문 상태 변경에 실패했습니다.",
+      );
+    } finally {
+      setProcessingOrderId(null);
     }
   };
 
-  // ✅ 추가: 주문 취소 전용 핸들러 (사유 입력 포함)
+  // 4. 주문 취소
   const handleCancelOrder = async (orderId) => {
-    // 1. 사유 입력 창 띄우기
-    const reason = window.prompt(
-      "취소 사유를 입력해주세요. (예: 재료 소진, 배달 불가 등)"
-    );
+    if (processingOrderId !== null) return;
 
-    // 2. 취소 버튼을 누르거나(null) 빈 값을 입력한 경우 예외 처리
+    const reason = window.prompt("주문 취소 사유를 입력해주세요.");
+
     if (reason === null) return;
-    if (reason.trim() === "") {
-      toast.warn("취소 사유를 반드시 입력해야 합니다.");
+
+    if (!reason.trim()) {
+      toast.warn("취소 사유를 입력해주세요.");
       return;
     }
 
+    if (!window.confirm("정말 주문을 취소하시겠습니까?")) {
+      return;
+    }
+
+    setProcessingOrderId(orderId);
+
     try {
-      // 3. 백엔드의 취소 전용 엔드포인트로 요청 전송 (reason 데이터 포함)
       await axios.patch(
-        `http://localhost:8080/api/orders/${orderId}/cancel`,
-        { reason: reason },
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${API}/orders/${orderId}/cancel`,
+        {
+          reason: reason.trim(),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
 
-      toast.success(`주문이 취소되었습니다. (사유: ${reason})`);
-      fetchStoreOrders(); // 목록 새로고침
+      toast.success("주문이 취소되었습니다.");
+
+      await fetchStoreOrders(false);
     } catch (error) {
-      console.error("취소 에러:", error);
-      toast.error("주문 취소 처리에 실패했습니다.");
+      console.error("주문 취소 실패:", error);
+
+      toast.error(error.response?.data?.message || "주문 취소에 실패했습니다.");
+    } finally {
+      setProcessingOrderId(null);
     }
   };
 
-  if (loading)
-    return <div className="loading-spinner">주문 목록을 불러오는 중...</div>;
+  // 5. 결제 상태에 따른 설명
+  const getPaymentDescription = (paymentStatus) => {
+    switch (paymentStatus) {
+      case "READY":
+        return "고객의 결제 진행을 기다리고 있습니다.";
 
+      case "APPROVED":
+        return "결제가 완료된 주문입니다.";
+
+      case "FAILED":
+        return "결제에 실패했습니다. 고객의 재결제를 기다려주세요.";
+
+      case "CANCELED":
+        return "결제 시도가 취소되었습니다.";
+
+      case "REFUNDED":
+        return "결제가 환불 완료되었습니다.";
+
+      default:
+        return "결제 정보가 없습니다.";
+    }
+  };
+
+  // 6. 로딩 화면
+  if (loading) {
+    return <div className="loading-spinner">주문 목록을 불러오는 중...</div>;
+  }
+
+  // 7. 가게 주문 관리 화면
   return (
-    <div className="owner-order-page" style={{ padding: "20px" }}>
+    <div className="owner-order-page">
       <h2>🏪 가게 주문 관리</h2>
 
-      <div className="order-grid" style={{ display: "grid", gap: "20px" }}>
-        {orders.map((order) => (
-          <div
-            key={order.id}
-            className="order-card"
-            style={orderCardStyle(order.orderStatus)}
-          >
-            <div style={orderHeaderStyle}>
-              <span className="order-num">주문번호 #{order.id}</span>
-              <span className="order-time">
-                {new Date(order.createdAt).toLocaleTimeString()}
-              </span>
-            </div>
+      {orders.length === 0 ? (
+        <div className="empty-order">등록된 주문이 없습니다.</div>
+      ) : (
+        <div className="order-grid">
+          {orders.map((order) => {
+            const orderId = order.orderId ?? order.id;
+            const orderStatus = order.status ?? order.orderStatus;
 
-            <div className="customer-info" style={{ margin: "15px 0" }}>
-              <strong>주문자:</strong> {order.userName} <br />
-              <strong>주소:</strong> {order.address} <br />
-              {order.request && (
-                <div>
-                  <strong>요청사항:</strong> {order.request}
-                </div>
-              )}
-            </div>
+            const payment = order.latestPayment;
+            const paymentStatus = payment?.status;
 
-            <div className="items-box" style={itemsBoxStyle}>
-              {order.orderItems.map((item) => (
-                <div
-                  key={item.id}
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <span>
-                    {item.menuName} x {item.quantity}
+            const isProcessing = processingOrderId === orderId;
+
+            // 결제가 완료된 주문만 배달 시작 가능
+            const canStartDelivery =
+              orderStatus === "ACCEPTED" && paymentStatus === "APPROVED";
+
+            // 배달 중인 주문만 완료 가능
+            const canComplete = orderStatus === "DELIVERING";
+
+            // 취소 가능 상태
+            const canCancel = ["PENDING", "ACCEPTED"].includes(orderStatus);
+
+            return (
+              <div
+                key={orderId}
+                className={`order-card owner-order-card status-${orderStatus?.toLowerCase()}`}
+              >
+                {/* 주문 헤더 */}
+                <div className="order-header">
+                  <span className="order-num">주문번호 #{orderId}</span>
+
+                  <span
+                    className={`order-status status-${orderStatus?.toLowerCase()}`}
+                  >
+                    {ORDER_STATUS_MAP[orderStatus] || orderStatus}
                   </span>
-                  <span>{(item.price * item.quantity).toLocaleString()}원</span>
                 </div>
-              ))}
-            </div>
 
-            <div
-              style={{
-                textAlign: "right",
-                fontWeight: "bold",
-                fontSize: "1.1rem",
-                margin: "10px 0",
-              }}
-            >
-              총합: {order.totalPrice.toLocaleString()}원
-            </div>
+                {/* 주문 시간 및 고객 정보 */}
+                <div className="customer-info">
+                  <div>
+                    <strong>주문 시간:</strong>{" "}
+                    {order.requestedAt || order.createdAt
+                      ? new Date(
+                          order.requestedAt || order.createdAt,
+                        ).toLocaleString("ko-KR")
+                      : "-"}
+                  </div>
 
-            <div
-              className="status-actions"
-              style={{ display: "flex", gap: "5px" }}
-            >
-              <button
-                disabled={order.orderStatus !== "PENDING"}
-                onClick={() => handleStatusChange(order.id, "ACCEPTED")}
-                style={btnStyle("#228be6")}
-              >
-                접수
-              </button>
-              <button
-                disabled={order.orderStatus !== "ACCEPTED"}
-                onClick={() => handleStatusChange(order.id, "DELIVERING")}
-                style={btnStyle("#40c057")}
-              >
-                배달시작
-              </button>
-              <button
-                disabled={order.orderStatus !== "DELIVERING"}
-                onClick={() => handleStatusChange(order.id, "COMPLETED")}
-                style={btnStyle("#868e96")}
-              >
-                완료
-              </button>
-              {/* ✅ 수정: 취소 버튼 클릭 시 handleCancelOrder 호출 */}
-              <button
-                disabled={["COMPLETED", "CANCELED"].includes(order.orderStatus)}
-                onClick={() => handleCancelOrder(order.id)}
-                style={btnStyle("#fa5252")}
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+                  {/* DTO에 고객 이름을 추가했을 때 표시 */}
+                  {(order.userName || order.customerName) && (
+                    <div>
+                      <strong>주문자:</strong>{" "}
+                      {order.userName || order.customerName}
+                    </div>
+                  )}
+
+                  {/* DTO에 배송 주소를 추가했을 때 표시 */}
+                  {(order.deliveryAddress || order.address) && (
+                    <div>
+                      <strong>배송 주소:</strong>{" "}
+                      {order.deliveryAddress || order.address}
+                    </div>
+                  )}
+
+                  {order.request && (
+                    <div>
+                      <strong>요청사항:</strong> {order.request}
+                    </div>
+                  )}
+                </div>
+
+                {/* 주문 상품 */}
+                <div className="items-box">
+                  {(order.orderItems || []).map((item, index) => {
+                    const productName =
+                      item.productName || item.menuName || item.name || "상품";
+
+                    const quantity = Number(item.quantity || 0);
+
+                    const price = Number(item.price || 0);
+
+                    return (
+                      <div key={item.id ?? index} className="owner-order-item">
+                        <span>
+                          {productName} x {quantity}
+                        </span>
+
+                        <span>
+                          {(price * quantity).toLocaleString("ko-KR")}원
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 결제 정보 */}
+                <div className="owner-payment-box">
+                  <h4>결제 정보</h4>
+
+                  <div className="payment-row">
+                    <span>결제 상태</span>
+
+                    <strong
+                      className={`payment-status payment-${paymentStatus?.toLowerCase() || "unknown"}`}
+                    >
+                      {PAYMENT_STATUS_MAP[paymentStatus] || "결제 정보 없음"}
+                    </strong>
+                  </div>
+
+                  {payment && (
+                    <>
+                      <div className="payment-row">
+                        <span>결제 수단</span>
+
+                        <span>
+                          {PAYMENT_METHOD_MAP[payment.method] || payment.method}
+                        </span>
+                      </div>
+
+                      <div className="payment-row">
+                        <span>결제 금액</span>
+
+                        <strong>
+                          {Number(payment.amount || 0).toLocaleString("ko-KR")}
+                          원
+                        </strong>
+                      </div>
+                    </>
+                  )}
+
+                  <p className="payment-description">
+                    {getPaymentDescription(paymentStatus)}
+                  </p>
+                </div>
+
+                {/* 총 주문 금액 */}
+                <div className="owner-order-total">
+                  <span>총 주문 금액</span>
+
+                  <strong>
+                    {Number(order.totalPrice || 0).toLocaleString("ko-KR")}원
+                  </strong>
+                </div>
+
+                {/* 주문 상태 변경 버튼 */}
+                <div className="status-actions">
+                  {/* 결제 성공 후 자동 접수되므로 기존 접수 버튼 제거 */}
+                  {orderStatus === "PENDING" && (
+                    <div className="waiting-payment-message">
+                      {paymentStatus === "FAILED" ||
+                      paymentStatus === "CANCELED"
+                        ? "고객의 재결제를 기다리고 있습니다."
+                        : "고객 결제가 완료되면 자동으로 주문이 접수됩니다."}
+                    </div>
+                  )}
+
+                  {/* 결제 완료 후 배달 시작 */}
+                  {canStartDelivery && (
+                    <button
+                      disabled={isProcessing}
+                      onClick={() => handleStatusChange(orderId, "DELIVERING")}
+                      className="owner-action-btn delivery-btn"
+                    >
+                      배달 시작
+                    </button>
+                  )}
+
+                  {/* 배달 완료 */}
+                  {canComplete && (
+                    <button
+                      disabled={isProcessing}
+                      onClick={() => handleStatusChange(orderId, "COMPLETED")}
+                      className="owner-action-btn complete-btn"
+                    >
+                      배달 완료
+                    </button>
+                  )}
+
+                  {/* 주문 취소 */}
+                  {canCancel && (
+                    <button
+                      disabled={isProcessing}
+                      onClick={() => handleCancelOrder(orderId)}
+                      className="owner-action-btn cancel-btn"
+                    >
+                      주문 취소
+                    </button>
+                  )}
+
+                  {isProcessing && (
+                    <span className="processing-message">처리 중...</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-// 스타일 헬퍼
-const orderCardStyle = (status) => ({
+// 주문 카드 스타일
+const orderCardStyle = {
   border: "1px solid #ddd",
   borderRadius: "12px",
   padding: "20px",
-  backgroundColor: status === "PENDING" ? "#fff9db" : "#fff",
+  backgroundColor: "#fff",
   boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-});
-const orderHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  borderBottom: "1px solid #eee",
-  paddingBottom: "10px",
-  fontWeight: "bold",
 };
-const itemsBoxStyle = {
-  backgroundColor: "#f8f9fa",
-  padding: "10px",
-  borderRadius: "8px",
-};
-const btnStyle = (color) => ({
-  flex: 1,
-  padding: "10px",
-  backgroundColor: color,
-  color: "white",
-  border: "none",
-  borderRadius: "4px",
-  cursor: "pointer",
-  fontWeight: "bold",
-  opacity: 0.9,
-});
 
 export default OwnerOrderPage;

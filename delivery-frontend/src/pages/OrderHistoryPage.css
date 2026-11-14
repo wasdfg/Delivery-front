@@ -178,3 +178,212 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* 가게 주문 관리 */
+.owner-order-page {
+  padding: 20px;
+}
+
+.order-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.owner-order-card {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 20px;
+  background-color: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.owner-order-card.status-pending {
+  background-color: #fff9db;
+}
+
+.owner-order-card.status-accepted {
+  background-color: #f8f9fa;
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  font-weight: bold;
+}
+
+.order-status {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+.status-pending .order-status {
+  background-color: #fff3bf;
+  color: #e67700;
+}
+
+.status-accepted .order-status {
+  background-color: #d0ebff;
+  color: #1971c2;
+}
+
+.status-delivering .order-status {
+  background-color: #d3f9d8;
+  color: #2b8a3e;
+}
+
+.status-completed .order-status {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.status-canceled .order-status {
+  background-color: #ffe3e3;
+  color: #c92a2a;
+}
+
+.customer-info {
+  margin: 15px 0;
+  line-height: 1.8;
+  font-size: 0.9rem;
+}
+
+.items-box {
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.owner-order-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.owner-payment-box {
+  margin-top: 15px;
+  padding: 12px;
+  background-color: #f1f3f5;
+  border-radius: 8px;
+}
+
+.owner-payment-box h4 {
+  margin: 0 0 10px;
+}
+
+.payment-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 7px 0;
+  font-size: 0.9rem;
+}
+
+.payment-description {
+  margin: 10px 0 0;
+  color: #868e96;
+  font-size: 0.82rem;
+}
+
+.payment-ready {
+  color: #e67700;
+}
+
+.payment-approved {
+  color: #2b8a3e;
+}
+
+.payment-failed {
+  color: #e03131;
+}
+
+.payment-canceled {
+  color: #868e96;
+}
+
+.payment-refunded {
+  color: #7048e8;
+}
+
+.owner-order-total {
+  display: flex;
+  justify-content: space-between;
+  margin: 15px 0;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.owner-action-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.owner-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.delivery-btn {
+  background-color: #40c057;
+}
+
+.complete-btn {
+  background-color: #868e96;
+}
+
+.cancel-btn {
+  background-color: #fa5252;
+}
+
+.waiting-payment-message {
+  width: 100%;
+  padding: 10px;
+  background-color: #fff3bf;
+  color: #e67700;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.processing-message {
+  width: 100%;
+  text-align: center;
+  color: #868e96;
+  font-size: 0.85rem;
+}
+
+.empty-order {
+  padding: 50px 20px;
+  text-align: center;
+  color: #868e96;
+}
+
+@media (max-width: 600px) {
+  .order-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-order-page {
+    padding: 12px;
+  }
+
+  .owner-order-card {
+    padding: 15px;
+  }
+}
